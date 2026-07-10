@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/<org>/enterprise-platform.git
+    repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
     targetRevision: main
     path: bootstrap/gitops/applications
   destination:

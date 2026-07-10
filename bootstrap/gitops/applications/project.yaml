@@ -7,7 +7,7 @@ metadata:
 spec:
   description: Enterprise Platform - All applications
   sourceRepos:
-    - 'https://github.com/<org>/enterprise-platform.git'
+    - 'https://github.com/JFranOFigueroa/enterprise-platform.git'
   destinations:
     - namespace: 'apps-*'
       server: https://kubernetes.default.svc

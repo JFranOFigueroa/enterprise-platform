@@ -2,7 +2,7 @@
 controller:
   replicaCount: 2
   service:
-    type: LoadBalancer
+    type: NodePort
   config:
     use-forwarded-headers: "true"
     ssl-protocols: "TLSv1.2 TLSv1.3"
