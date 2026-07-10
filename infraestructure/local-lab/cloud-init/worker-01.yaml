@@ -1,0 +1,17 @@
+#cloud-config
+hostname: worker-01
+manage_etc_hosts: true
+users:
+  - name: vagrant
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA... vagrant
+packages:
+  - curl
+  - wget
+  - vim
+  - git
+runcmd:
+  - swapoff -a
+  - sed -i '/.*swap.*/d' /etc/fstab

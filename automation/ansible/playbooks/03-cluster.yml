@@ -1,0 +1,61 @@
+---
+# Enterprise Platform - Phase 3: Kubernetes Cluster
+# Installs containerd runtime and RKE2 (server + agents).
+
+- name: Install containerd runtime
+  hosts: all
+  become: true
+  roles:
+    - role: containerd
+      tags: [containerd, runtime]
+
+- name: Install RKE2 server
+  hosts: rke2_servers
+  become: true
+  roles:
+    - role: rke2
+      tags: [rke2, server]
+  post_tasks:
+    - name: Wait for RKE2 server
+      ansible.builtin.wait_for:
+        path: /etc/rancher/rke2/rke2.yaml
+        state: present
+        timeout: 300
+
+    - name: Collect join token
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/node-token
+      register: node_token_slurp
+
+    - name: Store token as fact
+      ansible.builtin.set_fact:
+        rke2_node_token: "{{ node_token_slurp.content | b64decode | trim }}"
+        cacheable: true
+
+- name: Install RKE2 agents
+  hosts: rke2_agents
+  become: true
+  vars:
+    rke2_server_token: "{{ hostvars[groups['rke2_servers'][0]]['rke2_node_token'] }}"
+  roles:
+    - role: rke2
+      tags: [rke2, agent]
+
+- name: Verify cluster
+  hosts: rke2_servers[0]
+  become: true
+  tasks:
+    - name: Remove cloud-provider taint (local lab)
+      ansible.builtin.shell:
+        cmd: /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml taint nodes --all node.cloudprovider.kubernetes.io/uninitialized- || true
+      changed_when: true
+
+    - name: Display cluster nodes
+      ansible.builtin.command:
+        cmd: /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get nodes -o wide
+      register: kubectl_nodes
+      changed_when: false
+
+    - name: Show cluster nodes
+      ansible.builtin.debug:
+        var: kubectl_nodes.stdout_lines

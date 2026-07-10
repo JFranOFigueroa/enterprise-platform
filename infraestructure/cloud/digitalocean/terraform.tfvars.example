@@ -1,0 +1,5 @@
+do_token          = "CHANGE_ME"
+ssh_key_name      = "enterprise-platform"
+project_name      = "enterprise-platform"
+region            = "nyc3"
+agent_count       = 2

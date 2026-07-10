@@ -1,0 +1,28 @@
+global:
+  environment: dev
+
+postgresql:
+  primary:
+    persistence:
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+backend:
+  replicas: 1
+  hpa:
+    enabled: false
+
+frontend:
+  replicas: 1
+  hpa:
+    enabled: false
+
+ingress:
+  hosts:
+    - host: iumbit-dev.local
+      paths:
+        - path: /
+          pathType: Prefix

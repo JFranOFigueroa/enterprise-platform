@@ -1,0 +1,192 @@
+# Enterprise Platform - Context
+
+> Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
+> Última actualización: 2026-07-10
+
+---
+
+## 1. Qué es Enterprise Platform
+
+Enterprise Platform es una **plataforma de ingeniería cloud-agnostic** capaz de ejecutar aplicaciones empresariales Java de misión crítica con alta disponibilidad, observabilidad, automatización y escalabilidad.
+
+**Principio fundamental:** La plataforma es el producto principal. Las aplicaciones son consumidores.
+
+IUMBIT es simplemente el **primer cliente** de esta plataforma.
+
+> "No estamos construyendo una plataforma para IUMBIT. Estamos construyendo una plataforma que ejecuta IUMBIT primero."
+
+---
+
+## 2. Historia del Proyecto
+
+### Fase 1: Arquitectura (Completada)
+
+14 documentos de diseño que definieron la visión, principios, capacidades, topología, decisiones ADR, y roadmap.
+
+### Fase 2: Implementación (En progreso)
+
+**Completado:**
+- [x] Estructura del repositorio (~140 archivos)
+- [x] Ansible roles: common, ubuntu, debian, containerd, rke2, gitops
+- [x] Ansible playbooks: site.yml (4 fases)
+- [x] Inventarios multi-ambiente: local-lab, onprem, cloud-digitalocean, cloud-aws
+- [x] Helm chart IUMBIT completo (24 archivos)
+- [x] GitOps: ArgoCD bootstrap + app-of-apps + IUMBIT application
+- [x] Vagrant: Vagrantfile + bootstrap.sh + install-prereqs.sh
+- [x] Terraform Proxmox, DigitalOcean, AWS
+- [x] On-prem: prepare-server.sh + cloud-init
+- [x] Plataforma: ingress, monitoring, logging, certificates, gitops values
+- [x] .gitignore comprehensivo
+- [x] run-ansible.sh wrapper portable
+- [x] SSH keys con paths relativos (portable)
+- [x] ansible_host: host.docker.internal (WSL2 compatible)
+
+**Pendiente:**
+- [ ] Ejecutar vagrant up para crear VMs
+- [ ] Ejecutar Ansible bootstrap (RKE2 + ArgoCD)
+- [ ] Desplegar plataforma (ingress, monitoring, cert-manager)
+- [ ] Desplegar IUMBIT en dev
+- [ ] Configurar HPA para IUMBIT
+- [ ] Tests de humo
+- [ ] Runbooks de operación
+
+---
+
+## 3. Decisiones Arquitectónicas Clave
+
+### ADR-0001: La plataforma es el producto
+### ADR-0002: Cloud Native Platform
+### ADR-0003: Bootstrap First
+### ADR-0004: Cloud Agnostic
+### Decisión de OS: Ubuntu (referencia)
+### Decisión de K8s: RKE2
+### Decisión de Automatización: Ansible
+
+---
+
+## 4. Los 15 Principios de la Constitución
+
+| # | Principio | Resumen |
+|---|-----------|---------|
+| 1 | Git es la fuente de verdad | Todo cambio pasa por Git |
+| 2 | Todo es declarativo | Estado deseado, no pasos manuales |
+| 3 | Automatización antes que manual | Tarea repetitiva = automatizar |
+| 4 | Idempotencia obligatoria | Repetir = mismo resultado |
+| 5 | Apps consumen capacidades | No dependen de herramientas específicas |
+| 6 | Abstracción tecnológica | Tecnologías son detalles de implementación |
+| 7 | Bootstrap reproducible | Desde infra vacía hasta plataforma operativa |
+| 8 | GitOps como modelo operativo | Git ↔ Plataforma sincronizados |
+| 9 | Observabilidad desde el día 1 | Métricas, logs, trazas, alertas |
+| 10 | Seguridad transversal | No es una etapa, es diseño |
+| 11 | Cloud Agnostic | Local, on-prem, o cloud sin cambios |
+| 12 | La plataforma es un producto | Versiones, backlog, documentación |
+| 13 | Documentación como código | Versionada, evoluciona con el código |
+| 14 | Arquitectura antes que implementación | Requisitos → Tecnología |
+| 15 | Evolución continua | Diseño para adaptarse al futuro |
+
+---
+
+## 5. Stack Tecnológico
+
+### Capa de Infraestructura
+| Componente | Local Lab | VPS | AWS |
+|------------|-----------|-----|-----|
+| Hypervisor | VMware Workstation | - | - |
+| Provisioner | Vagrant | Terraform | Terraform |
+| SO | Ubuntu 24.04 | Ubuntu 24.04 | Ubuntu 24.04 |
+
+### Capa de Plataforma
+| Componente | Versión | Propósito |
+|------------|---------|-----------|
+| RKE2 | v1.31.4+rke2r1 | Kubernetes |
+| ArgoCD | v2.13.3 | GitOps |
+| NGINX Ingress | 4.11.x | Ingress Controller |
+| cert-manager | latest | TLS |
+| Prometheus | 0.77.x | Métricas |
+| Grafana | 11.3.0 | Dashboards |
+| Loki | latest | Logs |
+
+### Capa de Aplicación
+| Componente | Versión | Propósito |
+|------------|---------|-----------|
+| PostgreSQL | 18.0 | Base de datos |
+| WildFly | dev.16 | Backend Java |
+| Nginx/Vue.js | dev.3 | Frontend |
+
+---
+
+## 6. Roadmap por Releases
+
+```text
+v0.1  Bootstrap         ← ESTAMOS AQUÍ
+  ├── Laboratorio local (Vagrant/VMware)
+  ├── Ansible bootstrap (RKE2)
+  └── ArgoCD funcional
+
+v0.2  GitOps
+  ├── ArgoCD ApplicationSet
+  ├── Deploy IUMBIT via GitOps
+  └── Values por ambiente
+
+v0.3  Observability
+  ├── Prometheus + Grafana
+  ├── Loki + Promtail
+  └── Dashboards de plataforma
+
+v0.4  IUMBIT
+  ├── Helm chart completo
+  ├── HPA funcional
+  ├── PostgreSQL HA
+  └── Tests de humo
+
+v1.0  Production Ready
+  ├── Multi-cluster (dev/prod)
+  ├── Backup/Restore
+  ├── Disaster Recovery
+  ├── Runbooks de operación
+  └── Documentación completa
+```
+
+---
+
+## 7. Golden Path para Desarrolladores
+
+1. Crear repositorio en `applications/`
+2. Crear Helm chart con la estructura estándar
+3. Agregar ArgoCD Application en `bootstrap/gitops/applications/`
+4. Agregar values por ambiente
+5. Hacer `git push`
+6. ArgoCD despliega automáticamente
+
+**El desarrollador nunca toca kubectl.**
+
+---
+
+## 8. Variables Críticas de Seguridad
+
+NUNCA commitear al repositorio:
+- JWT_SECRET_KEY
+- GOOGLE_CLIENT_SECRET
+- MICROSOFT_CLIENT_SECRET
+- DB_PASSWORD
+- MAIL_PASSWORD
+- SSH private keys
+- API tokens
+- kubeconfig files
+
+Usar: Ansible Vault, Sealed Secrets, o External Secrets Operator.
+
+---
+
+## 9. Métricas del Proyecto
+
+| Métrica | Valor |
+|---------|-------|
+| Archivos totales | ~140 |
+| Documentos de arquitectura | 14 |
+| Ansible roles | 6 |
+| Ansible playbooks | 5 |
+| Helm templates | 14 |
+| Terraform providers | 3 (Proxmox, DO, AWS) |
+| Inventarios | 5 |
+| Values IUMBIT | 5 (base + 4 ambientes) |

@@ -1,0 +1,41 @@
+---
+# Install RKE2 agent
+
+- name: Download RKE2 install script
+  ansible.builtin.get_url:
+    url: https://get.rke2.io
+    dest: /tmp/rke2-install.sh
+    mode: "0755"
+
+- name: Install RKE2 agent
+  ansible.builtin.command:
+    cmd: sh /tmp/rke2-install.sh
+    creates: /usr/local/bin/rke2-agent
+  environment:
+    INSTALL_RKE2_TYPE: agent
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+
+- name: Create RKE2 config directory
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    mode: "0755"
+
+- name: Deploy RKE2 agent configuration
+  ansible.builtin.template:
+    src: rke2-agent.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    mode: "0644"
+
+- name: Enable RKE2 agent service
+  ansible.builtin.systemd:
+    name: rke2-agent
+    enabled: true
+    daemon_reload: true
+
+- name: Start RKE2 agent
+  ansible.builtin.command:
+    cmd: systemctl start rke2-agent
+  async: 300
+  poll: 0
+  register: rke2_agent_start

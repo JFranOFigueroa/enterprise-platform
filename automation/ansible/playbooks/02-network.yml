@@ -1,0 +1,67 @@
+---
+# Enterprise Platform - Phase 2: Network Configuration
+# Configures /etc/hosts, firewall rules, and kernel parameters.
+
+- name: Configure hosts file
+  hosts: all
+  become: true
+  tasks:
+    - name: Add host entries
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ hostvars[item].node_ip }} {{ item }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item].node_ip is defined
+
+    - name: Configure UFW defaults
+      community.general.ufw:
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: incoming, policy: deny }
+        - { direction: outgoing, policy: allow }
+
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow Kubernetes API
+      community.general.ufw:
+        rule: allow
+        port: "6443"
+        proto: tcp
+
+    - name: Allow RKE2 supervisor (agent registration)
+      community.general.ufw:
+        rule: allow
+        port: "9345"
+        proto: tcp
+
+    - name: Allow RKE2 networking
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: udp
+      loop:
+        - "8472"
+        - "4789"
+        - "51820"
+
+    - name: Allow Calico BGP
+      community.general.ufw:
+        rule: allow
+        port: "179"
+        proto: tcp
+
+    - name: Allow NodePort range
+      community.general.ufw:
+        rule: allow
+        port: "30000:32767"
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled

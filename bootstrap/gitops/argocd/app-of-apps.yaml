@@ -1,0 +1,22 @@
+# Enterprise Platform - App of Apps
+# ArgoCD Application that manages all other applications
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: gitops
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<org>/enterprise-platform.git
+    targetRevision: main
+    path: bootstrap/gitops/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

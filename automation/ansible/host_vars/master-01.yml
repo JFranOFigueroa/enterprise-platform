@@ -1,0 +1,5 @@
+---
+# Master-01 specific variables
+node_role: control-plane
+node_labels: []
+node_taints: []

@@ -1,0 +1,32 @@
+# Enterprise Platform - ArgoCD Bootstrap
+# Applies the ArgoCD Helm chart via Kustomize
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: gitops
+resources:
+  - https://github.com/argoproj/argo-helm//charts/argo-cd?ref=argo-cd-7.3.0
+patches:
+  - patch: |
+      apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      metadata:
+        name: argocd
+        namespace: gitops
+      spec:
+        chart:
+          spec:
+            chart: argo-cd
+            version: "7.3.0"
+        values:
+          global:
+            image:
+              tag: v2.13.3
+          server:
+            service:
+              type: NodePort
+              nodePortHttp: 30080
+              nodePortHttps: 30443
+          dex:
+            enabled: false
+          applicationSet:
+            enabled: true

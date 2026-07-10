@@ -1,0 +1,12 @@
+# Enterprise Platform - RKE2 Agent Configuration
+token: {{ rke2_server_token }}
+server: https://{{ hostvars[groups['rke2_servers'][0]].node_ip }}:9345
+node-label:
+  - node-role={{ node_role }}
+{% for label in node_labels | default([]) %}
+  - {{ label }}
+{% endfor %}
+node-taint:
+{% for taint in node_taints | default([]) %}
+  - {{ taint }}
+{% endfor %}

@@ -1,0 +1,17 @@
+Enterprise Platform - IUMBIT deployed!
+
+Environment: {{ .Values.global.environment }}
+
+Access:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  kubectl port-forward svc/{{ include "iumbit.fullname" . }}-frontend {{ .Values.frontend.port }}:{{ .Values.frontend.port }}
+{{- end }}
+
+Components:
+  - PostgreSQL: {{ include "iumbit.fullname" . }}-postgresql
+  - Backend: {{ include "iumbit.fullname" . }}-backend
+  - Frontend: {{ include "iumbit.fullname" . }}-frontend

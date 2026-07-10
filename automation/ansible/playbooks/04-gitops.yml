@@ -1,0 +1,10 @@
+---
+# Enterprise Platform - Phase 4: GitOps Engine
+# Deploys ArgoCD as the GitOps engine.
+
+- name: Deploy ArgoCD
+  hosts: rke2_servers[0]
+  become: true
+  roles:
+    - role: gitops
+      tags: [gitops, argocd]

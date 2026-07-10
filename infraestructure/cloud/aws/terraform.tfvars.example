@@ -1,0 +1,6 @@
+aws_region          = "us-east-1"
+project_name        = "enterprise-platform"
+ssh_key_name        = "enterprise-platform"
+instance_type_server = "m5.xlarge"
+instance_type_worker = "m5.large"
+agent_count         = 2

@@ -1,0 +1,7 @@
+---
+# RKE2 Server-specific variables
+rke2_type: server
+rke2_disable:
+  - traefik
+node_labels: []
+node_taints: []

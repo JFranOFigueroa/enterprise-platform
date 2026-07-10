@@ -1,0 +1,26 @@
+---
+# Enterprise Platform - Phase 1: Bootstrap Host
+# Targets all nodes to perform base OS configuration.
+# Applies the common role and the OS-specific role (ubuntu or debian).
+
+- name: Bootstrap all hosts with base configuration
+  hosts: all
+  gather_facts: true
+  become: true
+  pre_tasks:
+    - name: Include common role
+      ansible.builtin.include_role:
+        name: common
+      tags: [common, bootstrap]
+
+    - name: Include OS-specific role (Ubuntu)
+      ansible.builtin.include_role:
+        name: ubuntu
+      when: ansible_distribution == 'Ubuntu'
+      tags: [os_specific, bootstrap]
+
+    - name: Include OS-specific role (Debian)
+      ansible.builtin.include_role:
+        name: debian
+      when: ansible_distribution == 'Debian'
+      tags: [os_specific, bootstrap]

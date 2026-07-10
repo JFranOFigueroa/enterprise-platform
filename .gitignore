@@ -1,0 +1,189 @@
+# =============================================================================
+# Enterprise Platform - .gitignore
+# =============================================================================
+# Comprehensive ignore rules for the Enterprise Platform repository.
+# Covers secrets, environment files, build artifacts, IDE files,
+# infrastructure tooling outputs, and temporary files.
+# =============================================================================
+
+# ======================================
+# Environment files (may contain secrets)
+# ======================================
+*.env
+.env*
+!.env.example
+!.envrc
+
+# ======================================
+# Secrets
+# ======================================
+**/secrets.yaml
+**/secret.yaml
+**/*-secret.yaml
+**/sealed-secret*.yaml
+**/*-sealed-secret*.yaml
+**/values-secret*.yaml
+**/.secrets
+**/vault-*.yaml
+
+# ======================================
+# Kubernetes
+# ======================================
+*.kubeconfig
+kubeconfig
+admin.conf
+kube-config*
+**/kubeconfig-*
+.cluster-config
+
+# ======================================
+# Ansible
+# ======================================
+automation/ansible/*.retry
+automation/ansible/.vault_password
+**/.vault_password
+automation/ansible/inventories/*/hosts
+automation/ansible/*.log
+
+# ======================================
+# Helm
+# ======================================
+charts/
+*.tgz
+helm/charts/
+**/charts/*.tgz
+!**/charts/*.yaml
+
+# ======================================
+# IDE and Editor files
+# ======================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.swn
+*.bak
+*.orig
+*.class
+*.project
+*.settings/
+*.sublime-project
+*.sublime-workspace
+.ivy2/
+.cache/
+.gradle/
+
+# ======================================
+# OS files
+# ======================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.dll
+*.exe
+*.dmg
+*.pkg
+
+# ======================================
+# Terraform
+# ======================================
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+terraform.rc
+
+# ======================================
+# Vagrant
+# ======================================
+.vagrant/
+
+# ======================================
+# Temporary files
+# ======================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.log
+out/
+build/
+dist/
+target/
+bin/
+obj/
+
+# ======================================
+# Python
+# ======================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ======================================
+# Node / JavaScript
+# ======================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.eslintcache
+
+# ======================================
+# Docker
+# ======================================
+.docker/
+docker-compose.override.yml
+
+# ======================================
+# Encryption and signing
+# ======================================
+*.asc
+*.gpg
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+!**/test-fixtures/
+
+# ======================================
+# Large binary files
+# ======================================
+*.iso
+*.vhd
+*.vmdk
+*.ova
+*.box
+*.zip
+*.tar.gz
+!**/vendor/**/*.tar.gz
+
+# ======================================
+# Documentation generation
+# ======================================
+**/site/
+**/_site/
+**/.docusaurus/
+
+# ======================================
+# CI/CD
+# ======================================
+.ci/
+.jenkins/
+.gitlab-ci.yml
+**/ci-scripts/

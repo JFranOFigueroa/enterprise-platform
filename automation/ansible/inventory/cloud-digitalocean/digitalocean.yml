@@ -1,0 +1,21 @@
+---
+# DigitalOcean Dynamic Inventory
+plugin: community.digitalocean.digitalocean
+
+filters:
+  tag:
+    - enterprise-platform
+
+keyed_groups:
+  - key: tags
+    prefix: tag
+    separator: "_"
+  - key: region.slug
+    prefix: region
+  - key: size.slug
+    prefix: size
+
+compose:
+  ansible_host: public_ipv4
+  ansible_user: "'root'"
+  ansible_ssh_private_key_file: "'~/.ssh/enterprise-platform'"

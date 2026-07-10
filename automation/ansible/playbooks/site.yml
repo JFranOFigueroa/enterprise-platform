@@ -1,0 +1,21 @@
+---
+# Enterprise Platform - Bootstrap Master Playbook
+# Execute: ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+#
+# Phases:
+#   1. Bootstrap host (common setup, OS-specific configuration)
+#   2. Network configuration (hosts, firewall, kernel tuning)
+#   3. Kubernetes cluster installation (containerd + RKE2)
+#   4. GitOps engine deployment (ArgoCD)
+
+- name: Phase 1 - Bootstrap Host
+  ansible.builtin.import_playbook: 01-bootstrap-host.yml
+
+- name: Phase 2 - Network Configuration
+  ansible.builtin.import_playbook: 02-network.yml
+
+- name: Phase 3 - Kubernetes Cluster
+  ansible.builtin.import_playbook: 03-cluster.yml
+
+- name: Phase 4 - GitOps Engine
+  ansible.builtin.import_playbook: 04-gitops.yml

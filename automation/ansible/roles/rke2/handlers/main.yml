@@ -1,0 +1,12 @@
+---
+- name: restart_rke2_server
+  ansible.builtin.systemd:
+    name: rke2-server
+    state: restarted
+    daemon_reload: true
+
+- name: restart_rke2_agent
+  ansible.builtin.systemd:
+    name: rke2-agent
+    state: restarted
+    daemon_reload: true

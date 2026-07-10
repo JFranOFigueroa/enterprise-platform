@@ -1,0 +1,22 @@
+# Enterprise Platform - RKE2 Server Configuration
+token: {{ rke2_token }}
+cluster-domain: {{ cluster_domain }}
+cluster-cidr: {{ pod_cidr }}
+service-cidr: {{ service_cidr }}
+write-kubeconfig-mode: "0644"
+tls-san:
+  - {{ hostvars[groups['rke2_servers'][0]].ansible_host }}
+  - {{ groups['rke2_servers'][0] }}
+  - {{ node_ip }}
+disable:
+{% for service in rke2_disable | default([]) %}
+  - {{ service }}
+{% endfor %}
+node-label:
+{% for label in node_labels | default([]) %}
+  - {{ label }}
+{% endfor %}
+node-taint:
+{% for taint in node_taints | default([]) %}
+  - {{ taint }}
+{% endfor %}

@@ -1,0 +1,24 @@
+---
+# Ubuntu-specific tasks
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [ubuntu, packages]
+
+- name: Install Ubuntu-specific packages
+  ansible.builtin.apt:
+    name:
+      - linux-headers-generic
+      - linux-generic
+    state: present
+  tags: [ubuntu, kernel]
+
+- name: Disable unattended upgrades
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    state: stopped
+    enabled: false
+  ignore_errors: true
+  tags: [ubuntu, services]

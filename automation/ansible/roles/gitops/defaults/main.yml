@@ -1,0 +1,4 @@
+---
+argocd_version: "7.3.0"
+argocd_namespace: gitops
+argocd_chart_repo: https://argoproj.github.io/argo-helm

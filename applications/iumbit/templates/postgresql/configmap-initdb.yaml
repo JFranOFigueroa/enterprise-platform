@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iumbit.fullname" . }}-initdb
+  labels:
+    {{- include "iumbit.labels" . | nindent 4 }}
+data:
+  01-schema.sql: |
+    {{- .Files.Get "sql/01-schema.sql" | nindent 4 }}
+  02-seed.sql: |
+    {{- .Files.Get "sql/02-seed.sql" | nindent 4 }}

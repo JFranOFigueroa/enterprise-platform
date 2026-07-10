@@ -1,0 +1,24 @@
+# Enterprise Platform - IUMBIT ArgoCD Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: iumbit
+  namespace: gitops
+spec:
+  project: enterprise-platform
+  source:
+    repoURL: https://github.com/<org>/enterprise-platform.git
+    targetRevision: main
+    path: applications/iumbit
+    helm:
+      valueFiles:
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

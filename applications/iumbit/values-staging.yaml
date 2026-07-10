@@ -1,0 +1,34 @@
+global:
+  environment: staging
+
+postgresql:
+  primary:
+    persistence:
+      size: 30Gi
+    resources:
+      requests:
+        cpu: "1"
+        memory: 2Gi
+
+backend:
+  replicas: 2
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+frontend:
+  replicas: 2
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+ingress:
+  hosts:
+    - host: iumbit-staging.local
+      paths:
+        - path: /
+          pathType: Prefix

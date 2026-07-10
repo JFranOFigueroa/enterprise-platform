@@ -1,0 +1,24 @@
+# Enterprise Platform - Loki Values
+loki:
+  auth_enabled: false
+
+singleBinary:
+  replicas: 1
+
+monitoring:
+  dashboards:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+
+gateway:
+  enabled: false
+
+read:
+  replicas: 0
+
+write:
+  replicas: 0
+
+backend:
+  replicas: 0

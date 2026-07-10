@@ -1,0 +1,28 @@
+global:
+  environment: qa
+
+postgresql:
+  primary:
+    persistence:
+      size: 20Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+backend:
+  replicas: 2
+  hpa:
+    enabled: false
+
+frontend:
+  replicas: 2
+  hpa:
+    enabled: false
+
+ingress:
+  hosts:
+    - host: iumbit-qa.local
+      paths:
+        - path: /
+          pathType: Prefix

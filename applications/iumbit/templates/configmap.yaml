@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iumbit.fullname" . }}-config
+  labels:
+    {{- include "iumbit.labels" . | nindent 4 }}
+data:
+  SERVER_PORT: "8080"
+  DB_HOST: {{ include "iumbit.fullname" . }}-postgresql
+  DB_PORT: "5432"
+  DB_NAME: {{ .Values.postgresql.auth.database | quote }}
+  VUE_APP_API_URL: "/check-it"
+  VUE_CLI_TEST: {{ if eq .Values.global.environment "dev" }}"true"{{ else }}"false"{{ end }}

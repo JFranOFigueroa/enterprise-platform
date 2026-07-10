@@ -1,0 +1,66 @@
+# =============================================================================
+# Enterprise Platform - Local Lab (Vagrant + VMware Desktop)
+# =============================================================================
+# Creates 3 VMs for the RKE2 cluster:
+#   - master-01 (control plane)
+#   - worker-01 (agent)
+#   - worker-02 (agent)
+#
+# Usage:
+#   vagrant up           # Create all VMs
+#   vagrant ssh master-01  # SSH to master
+#   vagrant destroy -f   # Destroy all VMs
+# =============================================================================
+
+NODES = [
+  {
+    name: "ep-master-01",
+    hostname: "master-01",
+    ip: "192.168.56.10",
+    cpus: 2,
+    memory: 4096,
+    role: "server"
+  },
+  {
+    name: "ep-worker-01",
+    hostname: "worker-01",
+    ip: "192.168.56.11",
+    cpus: 2,
+    memory: 4096,
+    role: "agent"
+  },
+  {
+    name: "ep-worker-02",
+    hostname: "worker-02",
+    ip: "192.168.56.12",
+    cpus: 2,
+    memory: 4096,
+    role: "agent"
+  }
+]
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_architecture = "amd64"
+
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  config.vm.provider "vmware_desktop" do |vmware|
+    vmware.allowlist_verified = true
+  end
+
+  NODES.each do |node|
+    config.vm.define node[:name] do |cfg|
+      cfg.vm.hostname = node[:hostname]
+      cfg.vm.network "private_network", ip: node[:ip]
+      cfg.vm.provider "vmware_desktop" do |vmware|
+        vmware.vmx["memsize"] = node[:memory].to_s
+        vmware.vmx["numvcpus"] = node[:cpus].to_s
+        vmware.vmx["guestOS"] = "ubuntu-64"
+        vmware.vmx["displayName"] = node[:name]
+      end
+      cfg.vm.provision "shell", path: "scripts/bootstrap.sh",
+        args: [node[:role], node[:ip]]
+    end
+  end
+end

@@ -1,0 +1,18 @@
+# Enterprise Platform - ArgoCD Project
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: enterprise-platform
+  namespace: gitops
+spec:
+  description: Enterprise Platform - All applications
+  sourceRepos:
+    - 'https://github.com/<org>/enterprise-platform.git'
+  destinations:
+    - namespace: 'apps-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'platform-*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace

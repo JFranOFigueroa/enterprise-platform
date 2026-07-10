@@ -1,0 +1,84 @@
+# Enterprise Platform - Prometheus Stack Values
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+grafana:
+  enabled: true
+  adminPassword: admin
+  persistence:
+    enabled: true
+    size: 5Gi
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+serviceMonitors:
+  - name: platform-ingress-nginx
+    namespaceSelector:
+      matchNames:
+        - ingress-nginx
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+    endpoints:
+      - port: metrics
+        interval: 30s
+
+  - name: platform-cert-manager
+    namespaceSelector:
+      matchNames:
+        - cert-manager
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: cert-manager
+    endpoints:
+      - port: metrics
+        interval: 30s
+
+  - name: platform-loki
+    namespaceSelector:
+      matchNames:
+        - logging
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: loki
+    endpoints:
+      - port: http-metrics
+        interval: 30s
+
+alertmanagerConfig:
+  routes:
+    - match:
+        severity: critical
+      receiver: platform-critical
+      repeat_interval: 1h
+    - match:
+        severity: warning
+      receiver: platform-warning
+      repeat_interval: 4h
+
+receivers:
+  - name: platform-critical
+  - name: platform-warning

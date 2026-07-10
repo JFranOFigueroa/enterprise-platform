@@ -1,0 +1,37 @@
+---
+# Enterprise Platform - Global Variables
+# Applied to ALL hosts in ALL environments
+
+# Project
+project_name: enterprise-platform
+cluster_domain: cluster.local
+
+# Kubernetes networking
+pod_cidr: 10.42.0.0/16
+service_cidr: 10.43.0.0/16
+
+# Time
+timezone: America/Mexico_City
+ntp_server: pool.ntp.org
+
+# RKE2
+rke2_version: "v1.31.4+rke2r1"
+rke2_cni: calico
+rke2_token: "{{ vault_rke2_token | default('enterprise-platform-local-lab-token-2026') }}"
+
+# Common packages
+common_packages:
+  - curl
+  - wget
+  - vim
+  - git
+  - htop
+  - net-tools
+  - jq
+  - unzip
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - chrony
+  - ufw

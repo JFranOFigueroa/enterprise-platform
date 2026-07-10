@@ -1,0 +1,51 @@
+# Enterprise Platform - Legacy Docker Compose (Reference Only)
+# This is the original IUMBIT stack before migration to Kubernetes.
+# Kept for reference and local development comparison.
+
+version: '3.8'
+
+services:
+  iumbit-postgres:
+    image: postgres:18.0-trixie
+    container_name: iumbit-postgres
+    environment:
+      POSTGRES_DB: iumbit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/sql:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  iumbit-wildfly:
+    image: nitesoftmx/iumbit-wildfly-app:v1.0.0-dev.16
+    container_name: iumbit-wildfly
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:postgresql://iumbit-postgres:5432/iumbit
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+    ports:
+      - "8079:8080"
+    depends_on:
+      iumbit-postgres:
+        condition: service_healthy
+
+  iumbit-nginx:
+    image: nitesoftmx/iumbit-nginx-web:v1.0.0-dev.3
+    container_name: iumbit-nginx
+    ports:
+      - "8080:80"
+    depends_on:
+      - iumbit-wildfly
+
+volumes:
+  postgres_data:

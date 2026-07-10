@@ -1,0 +1,5 @@
+---
+# Worker-02 specific variables
+node_role: worker
+node_labels: []
+node_taints: []

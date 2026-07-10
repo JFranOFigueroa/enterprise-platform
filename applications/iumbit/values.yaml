@@ -1,0 +1,69 @@
+# Enterprise Platform - IUMBIT Base Values
+global:
+  environment: dev
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "18.0-trixie"
+  auth:
+    postgresPassword: changeme
+    database: iumbit
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+backend:
+  enabled: true
+  image:
+    repository: nitesoftmx/iumbit-wildfly-app
+    tag: "v1.0.0-dev.16"
+  port: 8080
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: false
+
+frontend:
+  enabled: true
+  image:
+    repository: nitesoftmx/iumbit-nginx-web
+    tag: "v1.0.0-dev.3"
+  port: 8080
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  hpa:
+    enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: iumbit.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

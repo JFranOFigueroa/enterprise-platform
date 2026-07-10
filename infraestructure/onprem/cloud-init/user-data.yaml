@@ -1,0 +1,19 @@
+#cloud-config
+hostname: enterprise-node
+manage_etc_hosts: true
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA... user@host
+packages:
+  - curl
+  - wget
+  - vim
+  - git
+  - chrony
+runcmd:
+  - swapoff -a
+  - sed -i '/.*swap.*/d' /etc/fstab
+  - echo "Server ready for Enterprise Platform"

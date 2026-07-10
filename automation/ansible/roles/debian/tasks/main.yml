@@ -1,0 +1,16 @@
+---
+# Debian-specific tasks
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [debian, packages]
+
+- name: Install Debian-specific packages
+  ansible.builtin.apt:
+    name:
+      - linux-headers-amd64
+      - linux-image-amd64
+    state: present
+  tags: [debian, kernel]

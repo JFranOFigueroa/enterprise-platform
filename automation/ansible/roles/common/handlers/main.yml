@@ -1,0 +1,8 @@
+---
+- name: restart_chrony
+  ansible.builtin.systemd:
+    name: chrony
+    state: restarted
+
+- name: restart_sysctl
+  ansible.builtin.command: sysctl --system

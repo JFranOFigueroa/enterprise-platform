@@ -1,0 +1,53 @@
+---
+# Deploy ArgoCD via Helm
+
+- name: Set RKE2 bin path
+  ansible.builtin.set_fact:
+    rke2_bin: /var/lib/rancher/rke2/bin
+    rke2_kubeconfig: /etc/rancher/rke2/rke2.yaml
+
+- name: Download and install Helm
+  ansible.builtin.shell: |
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Add ArgoCD Helm repository
+  ansible.builtin.command:
+    cmd: helm repo add argo https://argoproj.github.io/argo-helm
+    creates: /root/.cache/helm/repository/argo-index.yaml
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Update Helm repositories
+  ansible.builtin.command:
+    cmd: helm repo update
+  changed_when: true
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Create gitops namespace
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl create namespace gitops"
+  register: namespace_result
+  changed_when: "'created' in namespace_result.stdout"
+  failed_when: namespace_result.rc != 0 and 'already exists' not in namespace_result.stderr
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Deploy ArgoCD
+  ansible.builtin.command:
+    cmd: >
+      helm upgrade --install argocd argo/argo-cd
+      --namespace gitops
+      --set global.image.tag=v2.13.3
+      --set server.service.type=NodePort
+      --set server.service.nodePortHttp=30080
+      --set server.service.nodePortHttps=30443
+      --set dex.enabled=false
+      --set applicationSet.enabled=true
+      --wait
+      --timeout 5m
+  changed_when: true
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml

@@ -1,0 +1,34 @@
+# Enterprise Platform - ArgoCD Values (for reference)
+global:
+  image:
+    tag: v2.13.3
+
+server:
+  service:
+    type: NodePort
+    nodePortHttp: 30080
+    nodePortHttps: 30443
+
+dex:
+  enabled: false
+
+applicationSet:
+  enabled: true
+
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi

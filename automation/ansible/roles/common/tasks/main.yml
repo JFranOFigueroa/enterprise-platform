@@ -1,0 +1,65 @@
+---
+# Enterprise Platform - Common Role
+# Shared tasks for ALL Linux distributions
+
+- name: Set timezone
+  ansible.builtin.timezone:
+    name: "{{ timezone }}"
+  tags: [common, time]
+
+- name: Configure NTP (chrony)
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+  notify: restart_chrony
+  tags: [common, ntp]
+
+- name: Deploy chrony configuration
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    mode: "0644"
+  notify: restart_chrony
+  tags: [common, ntp]
+
+- name: Disable swap permanently
+  ansible.builtin.command: swapoff -a
+  changed_when: true
+  tags: [common, swap]
+
+- name: Remove swap from fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '.*swap.*'
+    state: absent
+  tags: [common, swap]
+
+- name: Enable kernel modules for Kubernetes
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+  tags: [common, kernel]
+
+- name: Deploy Kubernetes sysctl configuration
+  ansible.builtin.template:
+    src: sysctl.conf.j2
+    dest: /etc/sysctl.d/99-kubernetes.conf
+    mode: "0644"
+  notify: restart_sysctl
+  tags: [common, sysctl]
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+  tags: [common, packages]
+
+- name: Configure locale
+  ansible.builtin.locale_gen:
+    name: en_US.UTF-8
+    state: present
+  tags: [common, locale]
