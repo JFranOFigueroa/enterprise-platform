@@ -1,17 +1,25 @@
 # Enterprise Platform - ArgoCD Project
+# Single AppProject covering all enterprise apps and platform components.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: enterprise-platform
   namespace: gitops
 spec:
-  description: Enterprise Platform - All applications
+  description: Enterprise Platform - All applications and platform components
   sourceRepos:
     - 'https://github.com/JFranOFigueroa/enterprise-platform.git'
+    - 'https://charts.jetstack.io'
+    - 'https://prometheus-community.github.io/helm-charts'
+    - 'https://grafana.github.io/helm-charts'
   destinations:
     - namespace: 'apps-*'
       server: https://kubernetes.default.svc
     - namespace: 'platform-*'
+      server: https://kubernetes.default.svc
+    - namespace: 'cert-manager'
+      server: https://kubernetes.default.svc
+    - namespace: 'gitops'
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: ''

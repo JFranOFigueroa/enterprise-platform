@@ -1,0 +1,64 @@
+# Enterprise Platform - Platform Components ApplicationSet
+# Deploys all platform components via ArgoCD using Helm charts from external repos
+# with values from this repository.
+#
+# To add a new platform component, add an entry to the generators.list.elements array.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-apps
+  namespace: gitops
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - name: cert-manager
+            chart: cert-manager
+            chartVersion: v1.17.1
+            helmRepoURL: https://charts.jetstack.io
+            valuesPath: platform/certificates/cert-manager-values.yaml
+            namespace: cert-manager
+          - name: kube-prometheus-stack
+            chart: kube-prometheus-stack
+            chartVersion: 72.5.1
+            helmRepoURL: https://prometheus-community.github.io/helm-charts
+            valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
+            namespace: platform-monitoring
+          - name: loki
+            chart: loki
+            chartVersion: 6.24.0
+            helmRepoURL: https://grafana.github.io/helm-charts
+            valuesPath: platform/logging/loki-values.yaml
+            namespace: platform-logging
+          - name: promtail
+            chart: promtail
+            chartVersion: 6.16.6
+            helmRepoURL: https://grafana.github.io/helm-charts
+            valuesPath: platform/logging/promtail-values.yaml
+            namespace: platform-logging
+  template:
+    metadata:
+      name: "platform-{{ .name }}"
+    spec:
+      project: enterprise-platform
+      sources:
+        - chart: "{{ .chart }}"
+          repoURL: "{{ .helmRepoURL }}"
+          targetRevision: "{{ .chartVersion }}"
+          helm:
+            valueFiles:
+              - $values/{{ .valuesPath }}
+        - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .namespace }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

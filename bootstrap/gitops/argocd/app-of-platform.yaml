@@ -1,10 +1,10 @@
-# Enterprise Platform - App of Apps (Enterprise Applications)
-# Manages ArgoCD Applications for enterprise/business apps.
-# Watches: bootstrap/gitops/applications/
+# Enterprise Platform - App of Platform (Platform Components)
+# Manages ArgoCD Applications/ApplicationSets for platform infrastructure.
+# Watches: platform/components/
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: app-of-apps
+  name: app-of-platform
   namespace: gitops
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
     targetRevision: main
-    path: bootstrap/gitops/applications
+    path: platform/components
     directory:
       recurse: true
   destination:
