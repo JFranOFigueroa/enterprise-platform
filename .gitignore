@@ -23,6 +23,7 @@
 **/sealed-secret*.yaml
 **/*-sealed-secret*.yaml
 **/values-secret*.yaml
+**/values-*-secrets.yaml
 **/.secrets
 **/vault-*.yaml
 
