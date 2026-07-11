@@ -146,4 +146,11 @@ else
     fi
 fi
 
+# Load secrets as extra-vars (highest precedence) if group_vars/secrets.yml exists
+SECRETS_FILE="${SCRIPT_DIR}/group_vars/secrets.yml"
+if [[ -f "$SECRETS_FILE" ]]; then
+    echo "[run-ansible.sh] Loading secrets from ${SECRETS_FILE}"
+    set -- "${@}" --extra-vars "@${SECRETS_FILE}"
+fi
+
 exec ansible-playbook "$@"
