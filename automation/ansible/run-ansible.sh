@@ -41,7 +41,7 @@ fix_ssh_keys() {
 
     echo "[run-ansible.sh] Copying SSH keys to /tmp/ with correct permissions..."
 
-    local vagrant_dir="${PROJECT_ROOT}/infraestructure/local-lab/vagrant"
+    local vagrant_dir="${PROJECT_ROOT}/infrastructure/local-lab/vagrant"
     if [[ ! -d "${vagrant_dir}/.vagrant/machines" ]]; then
         echo "[run-ansible.sh] ERROR: Vagrant machines not found at ${vagrant_dir}/.vagrant/machines/"
         echo "[run-ansible.sh] Run 'vagrant up' first."

@@ -10,7 +10,7 @@
 
 ### From Windows PowerShell:
 ```powershell
-cd infraestructure\local-lab\vagrant
+cd infrastructure\local-lab\vagrant
 vagrant up           # Create all VMs
 vagrant ssh master-01  # SSH to master
 vagrant destroy -f   # Destroy all VMs
@@ -18,7 +18,7 @@ vagrant destroy -f   # Destroy all VMs
 
 ### From WSL (Ansible):
 ```bash
-cd /home/pacs/EnterprisePlatform/automation/ansible
+cd automation/ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 ```
 

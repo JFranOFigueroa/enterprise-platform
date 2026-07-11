@@ -174,7 +174,7 @@ cd automation/ansible
 ### Desde Cero
 ```bash
 # 1. Destruir y recrear VMs
-cd infraestructure/local-lab/vagrant
+cd infrastructure/local-lab/vagrant
 vagrant destroy -f
 vagrant up
 

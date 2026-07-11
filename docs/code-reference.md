@@ -106,7 +106,7 @@ enterprise-platform/
 │   │   └── kube-prometheus-stack-values.yaml
 │   └── storage/
 │       └── local-path-provisioner.yaml
-├── infraestructure/                        # Cloud-agnostic infrastructure
+├── infrastructure/                        # Cloud-agnostic infrastructure
 │   ├── cloud/
 │   ├── local-lab/
 │   │   └── vagrant/
@@ -303,7 +303,7 @@ all:
           ansible_host: host.docker.internal
           ansible_port: 2222
           ansible_user: vagrant
-          ansible_ssh_private_key_file: ../../../../infraestructure/local-lab/vagrant/.vagrant/machines/ep-master-01/vmware_desktop/private_key
+          ansible_ssh_private_key_file: ../../../../infrastructure/local-lab/vagrant/.vagrant/machines/ep-master-01/vmware_desktop/private_key
           node_ip: 192.168.56.10
       vars:
         rke2_type: server
@@ -315,13 +315,13 @@ all:
           ansible_host: host.docker.internal
           ansible_port: 2200
           ansible_user: vagrant
-          ansible_ssh_private_key_file: ../../../../infraestructure/local-lab/vagrant/.vagrant/machines/ep-worker-01/vmware_desktop/private_key
+          ansible_ssh_private_key_file: ../../../../infrastructure/local-lab/vagrant/.vagrant/machines/ep-worker-01/vmware_desktop/private_key
           node_ip: 192.168.56.11
         worker-02:
           ansible_host: host.docker.internal
           ansible_port: 2201
           ansible_user: vagrant
-          ansible_ssh_private_key_file: ../../../../infraestructure/local-lab/vagrant/.vagrant/machines/ep-worker-02/vmware_desktop/private_key
+          ansible_ssh_private_key_file: ../../../../infrastructure/local-lab/vagrant/.vagrant/machines/ep-worker-02/vmware_desktop/private_key
           node_ip: 192.168.56.12
       vars:
         rke2_type: agent
@@ -544,7 +544,7 @@ NODES = [
 ### Comandos
 
 ```bash
-cd infraestructure/local-lab/vagrant
+cd infrastructure/local-lab/vagrant
 vagrant up                     # Crear las 3 VMs
 vagrant ssh master-01          # SSH al master
 vagrant destroy -f             # Destruir todo
