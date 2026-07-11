@@ -2,37 +2,41 @@
 # Generic application deployment task
 # Called from main.yml in a loop
 #
-# Expected variable: app (from loop)
-# Required app fields: name, namespace, valuesFile, repoPath
-# The app_secrets variable is loaded from applications/<name>/app_vars/<name>.yml
+# Expected variable: app_entry (from loop, via loop_control: loop_var: app_entry)
+# app_entry contains: { name: <app-name> }
+# After include_vars, app_config and app_secrets are available as separate variables
+# Required: app_config.name, app_config.namespace, app_config.valuesFile, app_config.repoPath
+#
+# The task loads app_vars/<name>-{{ target_environment }}.yml based on the target environment.
+# target_environment is passed via --extra-vars from run-ansible.sh (default: dev-local).
 
-- name: "Deploy {{ app.name }}: Load app variables"
+- name: "Deploy {{ app_entry.name }}: Load app variables for {{ target_environment }}"
   ansible.builtin.include_vars:
-    file: "{{ playbook_dir }}/../../../../applications/{{ app.name }}/app_vars/{{ app.name }}.yml"
+    file: "{{ project_root }}/applications/{{ app_entry.name }}/app_vars/{{ app_entry.name }}-{{ target_environment }}.yml"
 
-- name: "Deploy {{ app.name }}: Verify app metadata"
+- name: "Deploy {{ app_entry.name }}: Verify app metadata"
   ansible.builtin.assert:
     that:
-      - app.name is defined
-      - app.namespace is defined
-      - app.valuesFile is defined
-      - app.repoPath is defined
+      - app_config.name is defined
+      - app_config.namespace is defined
+      - app_config.valuesFile is defined
+      - app_config.repoPath is defined
     fail_msg: |
       ============================================================
-      ERROR: {{ app.name }} app_vars missing required fields.
+      ERROR: {{ app_entry.name }} app_vars missing required fields.
       Required: name, namespace, valuesFile, repoPath
-      Location: applications/{{ app.name }}/app_vars/{{ app.name }}.yml
+      Location: applications/{{ app_entry.name }}/app_vars/{{ app_entry.name }}-{{ target_environment }}.yml
       ============================================================
 
-- name: "Deploy {{ app.name }}: Generate ArgoCD Application"
+- name: "Deploy {{ app_entry.name }}: Generate ArgoCD Application"
   ansible.builtin.template:
     src: application.yaml.j2
-    dest: "/tmp/{{ app.name }}-application.yaml"
+    dest: "/tmp/{{ app_entry.name }}-{{ target_environment }}-application.yaml"
     mode: "0600"
 
-- name: "Deploy {{ app.name }}: Apply Application"
+- name: "Deploy {{ app_entry.name }}: Apply Application"
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/{{ app.name }}-application.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/{{ app_entry.name }}-{{ target_environment }}-application.yaml"
   register: app_result
   changed_when: "'created' in app_result.stdout or 'configured' in app_result.stdout"
   environment:

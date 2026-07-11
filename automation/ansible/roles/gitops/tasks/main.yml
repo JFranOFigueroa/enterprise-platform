@@ -64,13 +64,13 @@
 - name: Clone enterprise-platform repository
   ansible.builtin.git:
     repo: https://github.com/JFranOFigueroa/enterprise-platform.git
-    dest: /opt/enterprise-platform
+    dest: "{{ repo_clone_dest }}"
     version: main
     force: true
 
 - name: Apply local-path-provisioner
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/storage/local-path-provisioner.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/storage/local-path-provisioner.yaml"
   register: lpp_result
   changed_when: "'created' in lpp_result.stdout or 'configured' in lpp_result.stdout"
   environment:
@@ -91,7 +91,7 @@
 
 - name: Apply ArgoCD AppProject
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/components/project.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/project.yaml"
   register: project_result
   changed_when: "'created' in project_result.stdout or 'configured' in project_result.stdout"
   environment:
@@ -99,7 +99,7 @@
 
 - name: Apply app-of-apps
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/bootstrap/gitops/argocd/app-of-apps.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-apps.yaml"
   register: appofapps_result
   changed_when: "'created' in appofapps_result.stdout or 'configured' in appofapps_result.stdout"
   environment:
@@ -107,7 +107,7 @@
 
 - name: Apply app-of-platform
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/bootstrap/gitops/argocd/app-of-platform.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-platform.yaml"
   register: appofplatform_result
   changed_when: "'created' in appofplatform_result.stdout or 'configured' in appofplatform_result.stdout"
   environment:
@@ -123,7 +123,7 @@
   ansible.builtin.include_tasks: deploy-application.yml
   loop: "{{ applications | default([]) }}"
   loop_control:
-    loop_var: app
+    loop_var: app_entry
   when: applications is defined and applications | length > 0
 
 - name: Wait for cert-manager namespace to exist
@@ -163,7 +163,7 @@
 
 - name: Apply ClusterIssuers
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/certificates/clusterissuers.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/certificates/clusterissuers.yaml"
   register: issuers_result
   changed_when: "'created' in issuers_result.stdout or 'configured' in issuers_result.stdout"
   environment:

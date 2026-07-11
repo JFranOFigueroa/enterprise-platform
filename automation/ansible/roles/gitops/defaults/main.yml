@@ -3,6 +3,12 @@ argocd_version: "7.3.0"
 argocd_namespace: gitops
 argocd_chart_repo: https://argoproj.github.io/argo-helm
 
+# Paths
+# project_root: passed via --extra-vars from run-ansible.sh (auto-detected)
+# Fallback: resolves to project root from this file's location (roles/gitops/defaults/)
+project_root: "{{ playbook_dir }}/../../.."
+repo_clone_dest: /opt/enterprise-platform
+
 # Application deployment
 # Applications are defined in group_vars/all.yml and read from
 # applications/<name>/app_vars/<name>.yml

@@ -6,6 +6,17 @@
 project_name: enterprise-platform
 cluster_domain: cluster.local
 
+# Environment configuration
+# target_environment: passed via --extra-vars from run-ansible.sh
+# Default: dev-local (local development with ArgoCD managing only itself)
+# Options: dev-local, dev, qa, staging, production
+target_environment: dev-local
+
+# ArgoCD mode:
+#   local  = ArgoCD manages only this cluster (dev-local fallback)
+#   managed = ArgoCD manages this cluster from a remote management plane
+argocd_mode: local
+
 # Kubernetes networking
 pod_cidr: 10.42.0.0/16
 service_cidr: 10.43.0.0/16
@@ -39,7 +50,8 @@ common_packages:
 # ======================================
 # Applications to deploy
 # ======================================
-# Each app must have: applications/<name>/app_vars/<name>.yml
+# Each app must have: applications/<name>/app_vars/<name>-<environment>.yml
 # with app metadata (name, namespace, valuesFile, repoPath) and secrets.
+# Ansible loads app_vars/<name>-{{ target_environment }}.yml automatically.
 applications:
   - name: iumbit

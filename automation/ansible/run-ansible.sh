@@ -101,8 +101,9 @@ create_fixed_inventory() {
 # =============================================================================
 INVENTORY_FILE=""
 EXTRA_ARGS=()
+TARGET_ENV=""
 
-# Parse arguments to find -i inventory path
+# Parse arguments to find -i inventory path and --extra-vars
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -i|--inventory|--inventory-file)
@@ -115,6 +116,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Detect target_environment from extra-vars (default: dev-local)
+for arg in "${EXTRA_ARGS[@]}"; do
+    if [[ "$arg" == *"target_environment"* ]]; then
+        TARGET_ENV=$(echo "$arg" | sed 's/.*target_environment[= ]*\([^ "]*\).*/\1/')
+    fi
+done
+TARGET_ENV="${TARGET_ENV:-dev-local}"
+
+echo "[run-ansible.sh] Target environment: ${TARGET_ENV}"
 
 # Fix SSH keys and rewrite inventory if on WSL + /mnt/c/
 if needs_ssh_fix; then
@@ -152,5 +163,8 @@ if [[ -f "$SECRETS_FILE" ]]; then
     echo "[run-ansible.sh] Loading secrets from ${SECRETS_FILE}"
     set -- "${@}" --extra-vars "@${SECRETS_FILE}"
 fi
+
+# Pass project root and target environment to Ansible
+set -- "${@}" --extra-vars "project_root=${PROJECT_ROOT}" --extra-vars "target_environment=${TARGET_ENV}"
 
 exec ansible-playbook "$@"
