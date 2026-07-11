@@ -355,7 +355,7 @@ all:
 - PostgreSQL: 10Gi storage, 250m/512Mi
 - Backend: 1 replica, HPA disabled
 - Frontend: 1 replica, HPA disabled
-- Ingress: `iumbit-dev.local`
+- Ingress hosts: `iumbit-dev.local` + `localhost`
 
 ### Secrets Management
 
@@ -398,10 +398,12 @@ readinessProbe:
 
 ### Ingress Routing
 
-| Path | Service | Port | Target |
-|------|---------|------|--------|
-| `/` | iumbit-frontend | 8080 | Vue.js static files |
-| `/check-it-1.0.0-dev.16` | iumbit-backend | 8080 | WildFly API |
+| Host | Path | Service | Port | Target |
+|------|------|---------|------|--------|
+| `iumbit-dev.local` | `/` | iumbit-frontend | 8080 | Vue.js static files |
+| `iumbit-dev.local` | `/check-it-1.0.0-dev.16` | iumbit-backend | 8080 | WildFly API |
+| `localhost` | `/` | iumbit-frontend | 8080 | Vue.js static files |
+| `localhost` | `/check-it-1.0.0-dev.16` | iumbit-backend | 8080 | WildFly API |
 
 ---
 
@@ -580,6 +582,8 @@ vagrant destroy -f             # Destruir todo
 | Puerto | Servicio | Protocolo | Exposición |
 |--------|----------|-----------|------------|
 | 22 | SSH | TCP | Externa |
+| 80 | Ingress HTTP | TCP | Externa |
+| 443 | Ingress HTTPS | TCP | Externa |
 | 6443 | Kubernetes API | TCP | Externa |
 | 2379-2380 | etcd | TCP | Interna |
 | 8080 | WildFly/IUMBIT Backend | TCP | Ingress |
@@ -620,6 +624,10 @@ kubectl get applicationsets -n gitops
 # Verificar IUMBIT
 kubectl get pods -n apps-dev
 kubectl get ingress -n apps-dev
+
+# Acceder a IUMBIT (desde Windows, agregar al hosts file: 127.0.0.1 iumbit-dev.local)
+# Frontend: http://localhost:8080
+# Backend:  http://localhost:8080/check-it-1.0.0-dev.16
 
 # Verificar platform
 kubectl get pods -n cert-manager

@@ -53,6 +53,9 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 - [x] Backend port 8080 (WildFly default, no 8079)
 - [x] Probes: startupProbe (tcpSocket) + liveness/readiness (tcpSocket, sin HTTP dependency)
 - [x] Liquibase schema (30+ tablas) commiteado y pusheado
+- [x] UFW: puertos 80/443 habilitados para Ingress
+- [x] Ingress hosts: iumbit-dev.local + localhost (acceso local sin TLS)
+- [x] IUMBIT accesible via http://localhost:8080
 
 **Pendiente:**
 - [ ] Configurar HPA para IUMBIT
