@@ -149,11 +149,6 @@
     mode: "0600"
   when: iumbit_secrets is defined
 
-- name: Debug generated IUMBIT Application
-  ansible.builtin.debug:
-    msg: "{{ lookup('file', '/tmp/iumbit-application.yaml') }}"
-  when: iumbit_secrets is defined
-
 - name: Apply patched IUMBIT Application
   ansible.builtin.command:
     cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/iumbit-application.yaml"
