@@ -121,6 +121,27 @@
 # CHANGE_ME placeholders in values-dev.yaml from the repo.
 # =============================================================================
 
+- name: Verify iumbit_secrets is defined
+  ansible.builtin.fail:
+    msg: |
+      ============================================================
+      ERROR: iumbit_secrets is NOT defined!
+      ============================================================
+      IUMBIT will NOT be deployed.
+
+      The variable 'iumbit_secrets' must be defined in
+      automation/ansible/group_vars/secrets.yml (gitignored).
+
+      Create the file with your real values and re-run:
+        ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+      ============================================================
+  when: iumbit_secrets is not defined
+
+- name: Debug iumbit_secrets keys
+  ansible.builtin.debug:
+    msg: "iumbit_secrets loaded with {{ iumbit_secrets | length }} keys: {{ iumbit_secrets.keys() | list }}"
+  when: iumbit_secrets is defined
+
 - name: Generate patched IUMBIT Application with real secrets
   ansible.builtin.template:
     src: iumbit-application.yaml.j2
@@ -128,7 +149,12 @@
     mode: "0600"
   when: iumbit_secrets is defined
 
-- name: Apply patched IUMBIT Application (overrides app-of-apps version)
+- name: Debug generated IUMBIT Application
+  ansible.builtin.debug:
+    msg: "{{ lookup('file', '/tmp/iumbit-application.yaml') }}"
+  when: iumbit_secrets is defined
+
+- name: Apply patched IUMBIT Application
   ansible.builtin.command:
     cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/iumbit-application.yaml"
   register: iumbit_app_result
