@@ -2,3 +2,8 @@
 argocd_version: "7.3.0"
 argocd_namespace: gitops
 argocd_chart_repo: https://argoproj.github.io/argo-helm
+
+# Application deployment
+# Applications are defined in group_vars/all.yml and read from
+# applications/<name>/app_vars/<name>.yml
+applications: []

@@ -105,30 +105,30 @@ sum(rate(container_network_transmit_bytes_total{namespace="apps-dev"}[5m])) by (
 
 ## Queries Útiles en Loki
 
-### Logs de IUMBIT Backend
+### Logs de Backend
 ```logql
 # Todos los logs
-{app="iumbit-backend"}
+{app="mi-app-backend"}
 
 # Solo errores
-{app="iumbit-backend"} |= "ERROR"
+{app="mi-app-backend"} |= "ERROR"
 
 # Logs de un pod específico
-{app="iumbit-backend", pod="iumbit-backend-xxxxx"}
+{app="mi-app-backend", pod="mi-app-backend-xxxxx"}
 
 # Logs recientes (últimos 5 minutos)
-{app="iumbit-backend"} | json | __error__="" | line_format "{{.msg}}" [5m]
+{app="mi-app-backend"} | json | __error__="" | line_format "{{.msg}}" [5m]
 
 # Conteo de errores
-count_over_time({app="iumbit-backend"} |= "ERROR" [1h])
+count_over_time({app="mi-app-backend"} |= "ERROR" [1h])
 ```
 
-### Logs de IUMBIT Frontend
+### Logs de Frontend
 ```logql
-{app="iumbit-frontend"}
+{app="mi-app-frontend"}
 
 # Errores de Nginx
-{app="iumbit-frontend"} |= "error"
+{app="mi-app-frontend"} |= "error"
 ```
 
 ### Logs de PostgreSQL
@@ -163,7 +163,7 @@ count_over_time({app="iumbit-backend"} |= "ERROR" [1h])
 - Pods: Running, Pending, Failed
 - Deployments: Replicas, Updates
 
-### 2. IUMBIT Application
+### 2. Application Monitoring
 - Request rate
 - Error rate
 - Response time
@@ -199,38 +199,38 @@ count_over_time({app="iumbit-backend"} |= "ERROR" [1h])
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: iumbit-alerts
+  name: mi-app-alerts
   namespace: platform-monitoring
 spec:
   groups:
-  - name: iumbit
+  - name: mi-app
     rules:
-    - alert: IUMBITBackendDown
-      expr: up{job="iumbit-backend"} == 0
+    - alert: MiAppBackendDown
+      expr: up{job="mi-app-backend"} == 0
       for: 1m
       labels:
         severity: critical
       annotations:
-        summary: "IUMBIT Backend is down"
-        description: "IUMBIT Backend has been down for more than 1 minute."
+        summary: "Mi App Backend is down"
+        description: "Mi App Backend has been down for more than 1 minute."
     
-    - alert: IUMBITHighErrorRate
-      expr: rate(http_requests_total{job="iumbit-backend", status=~"5.."}[5m]) > 0.1
+    - alert: MiAppHighErrorRate
+      expr: rate(http_requests_total{job="mi-app-backend", status=~"5.."}[5m]) > 0.1
       for: 5m
       labels:
         severity: warning
       annotations:
-        summary: "IUMBIT Backend high error rate"
-        description: "IUMBIT Backend error rate is above 10%."
+        summary: "Mi App Backend high error rate"
+        description: "Mi App Backend error rate is above 10%."
     
-    - alert: IUMBITHighLatency
-      expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="iumbit-backend"}[5m])) > 2
+    - alert: MiAppHighLatency
+      expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="mi-app-backend"}[5m])) > 2
       for: 5m
       labels:
         severity: warning
       annotations:
-        summary: "IUMBIT Backend high latency"
-        description: "IUMBIT Backend p99 latency is above 2 seconds."
+        summary: "Mi App Backend high latency"
+        description: "Mi App Backend p99 latency is above 2 seconds."
 ```
 
 ### Aplicar Alerta

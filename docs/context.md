@@ -7,17 +7,31 @@
 
 ## 1. Qué es Enterprise Platform
 
-Enterprise Platform es una **plataforma de ingeniería cloud-agnostic** capaz de ejecutar aplicaciones empresariales Java de misión crítica con alta disponibilidad, observabilidad, automatización y escalabilidad.
+Enterprise Platform es una **plataforma de ingeniería cloud-agnostic** capaz de ejecutar aplicaciones empresariales de misión crítica con alta disponibilidad, observabilidad, automatización y escalabilidad.
 
 **Principio fundamental:** La plataforma es el producto principal. Las aplicaciones son consumidores.
 
-IUMBIT es simplemente el **primer cliente** de esta plataforma.
+---
 
-> "No estamos construyendo una plataforma para IUMBIT. Estamos construyendo una plataforma que ejecuta IUMBIT primero."
+## 2. Estructura del Repositorio
+
+```text
+enterprise-platform/
+├── ADR/                    # Architecture Decision Records (0001-0004)
+├── applications/           # Aplicaciones que consumen la plataforma
+│   └── <app-name>/         # Cada app es autocontenida (Chart + app_vars/)
+├── automation/             # Ansible: inventarios, playbooks, roles
+├── bootstrap/              # ArgoCD bootstrap (app-of-apps, app-of-platform)
+├── platform/               # Servicios compartidos (ingress, monitoring, logging, certs)
+├── infrastructure/         # Cloud-agnostic: local-lab, on-prem, cloud/*
+├── docs/                   # Documentación (architecture/, runbooks/, archive/)
+├── tests/                  # Tests de plataforma
+└── tools/                  # CLI tools y templates
+```
 
 ---
 
-## 2. Historia del Proyecto
+## 3. Historia del Proyecto
 
 ### Fase 1: Arquitectura (Completada)
 
@@ -30,16 +44,16 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 - [x] Ansible roles: common, ubuntu, debian, containerd, rke2, gitops
 - [x] Ansible playbooks: site.yml (4 fases)
 - [x] Inventarios multi-ambiente: local-lab, onprem, cloud-digitalocean, cloud-aws
-- [x] Helm chart IUMBIT completo (secrets, configmap, ingress multi-service, HPA)
 - [x] GitOps: ArgoCD bootstrap + app-of-platform + ApplicationSet
-- [x] IUMBIT desplegado via Ansible + helm.parameters (secrets inyectados)
-- [x] Ingress routing: `/` → frontend, `/check-it-1.0.0-dev.16*` → backend
-- [x] Secrets management via group_vars/secrets.yml (gitignored) + Ansible injection
+- [x] Deployment model genérico: `applications/<app>/app_vars/<app>.yml` (gitignored)
+- [x] Generic ArgoCD Application template (application.yaml.j2)
+- [x] Generic app deployment loop in gitops role
+- [x] Secrets management: per-app `app_vars/` (gitignored) + Ansible injection
 - [x] Vagrant: Vagrantfile + bootstrap.sh + install-prereqs.sh
-- [x] Terraform Proxmox, DigitalOcean, AWS
+- [x] Terraform: Proxmox, DigitalOcean, AWS
 - [x] On-prem: prepare-server.sh + cloud-init
 - [x] Plataforma: ingress, monitoring, logging, certificates, gitops values
-- [x] .gitignore comprehensivo (excluye secrets, kubeconfig, .env)
+- [x] .gitignore comprehensivo (excluye secrets, app_vars/, kubeconfig, .env)
 - [x] run-ansible.sh wrapper portable (SSH fix, temp inventory, key copy)
 - [x] SSH keys con paths relativos (portable)
 - [x] ansible_host: host.docker.internal (WSL2 compatible)
@@ -49,35 +63,35 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 - [x] cert-manager + ClusterIssuers (selfsigned-issuer Ready)
 - [x] Prometheus + Grafana + kube-state-metrics + node-exporters
 - [x] Loki (singleBinary, filesystem storage) + Promtail (3 pods)
-- [x] IUMBIT backend + frontend + PostgreSQL desplegados y healthy
-- [x] Backend port 8080 (WildFly default, no 8079)
-- [x] Probes: startupProbe (tcpSocket) + liveness/readiness (tcpSocket, sin HTTP dependency)
-- [x] Liquibase schema (30+ tablas) commiteado y pusheado
-- [x] UFW: puertos 80/443 habilitados para Ingress
-- [x] Ingress hosts: iumbit-dev.local + localhost (acceso local sin TLS)
-- [x] IUMBIT accesible via http://localhost:8080
-- [x] Runbooks de operación (day2, troubleshooting, backup-restore, scaling, monitoring)
+- [x] Runbooks de operación generalizados (day2, troubleshooting, backup-restore, scaling, monitoring)
+- [x] ADR consolidados (0001-0004) en `/ADR/`
+- [x] Documentación reorganizada (`docs/architecture/`, `docs/runbooks/`)
 
 **Pendiente:**
-- [ ] Configurar HPA para IUMBIT
 - [ ] Tests de humo
+- [ ] Configurar HPA para primera aplicación
 
 ---
 
-## 3. Decisiones Arquitectónicas Clave
+## 4. Decisiones Arquitectónicas Clave
 
-### ADR-0001: La plataforma es el producto
-### ADR-0002: Cloud Native Platform
-### ADR-0003: Bootstrap First
-### ADR-0004: Cloud Agnostic
-### Decisión de OS: Ubuntu (referencia)
-### Decisión de K8s: RKE2
-### Decisión de Automatización: Ansible
-### Decisión de Secrets: Ansible inyecta via helm.parameters (group_vars/secrets.yml gitignored)
+| ADR | Decisión |
+|-----|----------|
+| ADR-0001 | La plataforma es el producto |
+| ADR-0002 | Cloud Native Platform |
+| ADR-0003 | Bootstrap First |
+| ADR-0004 | Cloud Agnostic |
+
+| Decisión | Elección |
+|----------|----------|
+| OS | Ubuntu (referencia) |
+| Kubernetes | RKE2 |
+| Automatización | Ansible |
+| Secrets | Per-app `app_vars/<app>.yml` (gitignored) + Ansible injection via helm.parameters |
 
 ---
 
-## 4. Los 15 Principios de la Constitución
+## 5. Los 15 Principios de la Constitución
 
 | # | Principio | Resumen |
 |---|-----------|---------|
@@ -99,7 +113,7 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 
 ---
 
-## 5. Stack Tecnológico
+## 6. Stack Tecnológico
 
 ### Capa de Infraestructura
 | Componente | Local Lab | VPS | AWS |
@@ -121,95 +135,44 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 | Promtail | 6.16.6 | Log shipping |
 | local-path-provisioner | v0.0.36 | Default StorageClass |
 
-### Capa de Aplicación
-| Componente | Versión | Puerto | Propósito |
-|------------|---------|--------|-----------|
-| PostgreSQL | 18.0-trixie | 5432 | Base de datos |
-| WildFly | v1.0.0-dev.16 | 8080 | Backend Java |
-| Nginx/Vue.js | v1.0.0-dev.3 | 8080 | Frontend |
-
 ---
 
-## 6. Arquitectura de Secrets
+## 7. Application Deployment Model
 
-### Flujo de Inyección
+### Flujo de Inyección de Secrets
 
 ```
 Repo Git (GitHub)                    Tu máquina local
 ─────────────────                    ─────────────────
-values.yaml          →  CHANGE_ME    group_vars/secrets.yml  →  valores reales
+values.yaml          →  CHANGE_ME    applications/<app>/app_vars/<app>.yml  →  valores reales
 values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
-secrets.yaml         →  templating   run-ansible.sh lee secrets.yml
+                                     ↓
+                                     run-ansible.sh lee app_vars
                                      ↓
                                      Genera Application con helm.parameters
                                      ↓
                                      ArgoCD recibe secrets reales
 ```
 
-### Archivos de Secrets
+### Archivos de Secrets por Aplicación
 
 | Archivo | Propósito | Commiteado |
 |---------|-----------|------------|
-| `group_vars/secrets.yml` | Valores reales de secrets | NO (gitignored) |
+| `applications/<app>/app_vars/<app>.yml` | Valores reales de secrets | NO (gitignored) |
 | `values.yaml` | Placeholders CHANGE_ME | SI |
 | `values-dev.yaml` | Placeholders CHANGE_ME | SI |
 | `templates/secrets.yaml` | Template Helm (genera K8s Secret) | SI |
-
-### Secrets Manejados
-
-- JWT_SECRET_KEY
-- GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
-- MICROSOFT_CLIENT_ID / MICROSOFT_TENANT_ID
-- MAIL_USERNAME / MAIL_PASSWORD
-- DB_USERNAME / DB_PASSWORD
-- DB_URL (jdbc:postgresql://...)
-- CHECKIT_FRONT_REGISTER_VIEW
-- Frontend Vue.js vars (VUE_APP_API_URL, VUE_APP_GOOGLE_CLIENT_ID, etc.)
-
----
-
-## 7. Roadmap por Releases
-
-```text
-v0.1  Bootstrap         ← COMPLETADO
-  ├── Laboratorio local (Vagrant/VMware)
-  ├── Ansible bootstrap (RKE2)
-  └── ArgoCD funcional
-
-v0.2  GitOps            ← COMPLETADO
-  ├── ArgoCD ApplicationSet
-  ├── Deploy IUMBIT via GitOps
-  └── Values por ambiente
-
-v0.3  Observability     ← COMPLETADO
-  ├── Prometheus + Grafana
-  ├── Loki + Promtail
-  └── Dashboards de plataforma
-
-v0.4  IUMBIT            ← EN PROGRESO
-  ├── Helm chart completo
-  ├── PostgreSQL HA
-  ├── HPA funcional
-  └── Tests de humo
-
-v1.0  Production Ready
-  ├── Multi-cluster (dev/prod)
-  ├── Backup/Restore
-  ├── Disaster Recovery
-  ├── Runbooks de operación
-  └── Documentación completa
-```
 
 ---
 
 ## 8. Golden Path para Desarrolladores
 
-1. Crear repositorio en `applications/`
+1. Crear directorio en `applications/<app-name>/`
 2. Crear Helm chart con la estructura estándar
-3. Agregar ArgoCD Application en `bootstrap/gitops/applications/`
-4. Agregar values por ambiente
+3. Crear `app_vars/<app-name>.yml` con metadata y secrets
+4. Agregar app al listado en `group_vars/all.yml`
 5. Hacer `git push`
-6. ArgoCD despliega automáticamente
+6. Ansible + ArgoCD despliega automáticamente
 
 **El desarrollador nunca toca kubectl.**
 
@@ -218,16 +181,13 @@ v1.0  Production Ready
 ## 9. Variables Críticas de Seguridad
 
 NUNCA commitear al repositorio:
-- JWT_SECRET_KEY
-- GOOGLE_CLIENT_SECRET
-- MICROSOFT_CLIENT_SECRET
-- DB_PASSWORD
-- MAIL_PASSWORD
+- Database passwords
+- API keys / tokens
 - SSH private keys
-- API tokens
 - kubeconfig files
+- JWT secrets
 
-Usar: `group_vars/secrets.yml` (gitignored) + Ansible injection via helm.parameters.
+Usar: `applications/<app>/app_vars/<app>.yml` (gitignored) + Ansible injection via helm.parameters.
 
 ---
 
@@ -235,12 +195,11 @@ Usar: `group_vars/secrets.yml` (gitignored) + Ansible injection via helm.paramet
 
 | Métrica | Valor |
 |---------|-------|
-| Archivos totales | ~150 |
-| Documentos de arquitectura | 14 |
+| Documentos de arquitectura | 11 (docs/architecture/) |
+| ADRs | 4 (ADR/) |
 | Ansible roles | 6 |
 | Ansible playbooks | 5 |
 | Helm templates | 15 |
-| Terraform providers | 3 (Proxmox, DO, AWS) |
+| Terraform providers | 4 (Proxmox, DO, AWS, Hetzner) |
 | Inventarios | 5 |
-| Values IUMBIT | 2 (base + dev) |
-| ArgoCD Applications | 4 (app-of-apps, app-of-platform, platform-apps, iumbit) |
+| Runbooks | 5 |

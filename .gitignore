@@ -17,6 +17,7 @@
 # ======================================
 # Secrets
 # ======================================
+**/app_vars/
 **/secrets.yaml
 **/secret.yaml
 **/*-secret.yaml
@@ -192,3 +193,4 @@ docker-compose.override.yml
 **/ci-scripts/
 
 
+/automation.lnk

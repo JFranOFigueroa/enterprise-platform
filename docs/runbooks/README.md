@@ -60,7 +60,7 @@ http://localhost:8080/grafana
 ### Loki (Logs)
 ```bash
 # Query example
-{app="iumbit-backend"} |= "ERROR"
+{app="mi-app-backend"} |= "ERROR"
 {namespace="platform-monitoring"}
 ```
 
@@ -72,10 +72,10 @@ kubectl get nodes
 kubectl top nodes
 kubectl get pods -A --field-selector=status.phase!=Running
 
-# Estado de IUMBIT
+# Estado de aplicaciones
 kubectl get pods -n apps-dev
-kubectl logs -f deployment/iumbit-backend -n apps-dev
-kubectl logs -f deployment/iumbit-frontend -n apps-dev
+kubectl logs -f deployment/mi-app-backend -n apps-dev
+kubectl logs -f deployment/mi-app-frontend -n apps-dev
 
 # Estado de plataforma
 kubectl get pods -n platform-monitoring

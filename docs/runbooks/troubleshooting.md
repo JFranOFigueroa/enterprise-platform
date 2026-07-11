@@ -31,7 +31,7 @@ df -h
 
 ## Problemas Comunes
 
-### 1. Pod en状态 `CrashLoopBackOff`
+### 1. Pod en estado `CrashLoopBackOff`
 
 **Causas posibles:**
 - Error en la aplicación
@@ -195,13 +195,13 @@ kubectl get pods -n apps-dev | grep postgres
 kubectl logs statefulset/postgresql -n apps-dev
 
 # Probar conexión
-kubectl run psql-test --image=postgres:18 --rm -it --restart=Never -- psql -h postgresql.apps-dev.svc.cluster.local -U postgres -d iumbit
+kubectl run psql-test --image=postgres:18 --rm -it --restart=Never -- psql -h postgresql.apps-dev.svc.cluster.local -U postgres -d mi-app
 ```
 
 **Solución:**
 ```bash
 # Verificar secret
-kubectl get secret iumbit-secrets -n apps-dev -o jsonpath="{.data.DB_PASSWORD}" | base64 -d
+kubectl get secret mi-app-secrets -n apps-dev -o jsonpath="{.data.DB_PASSWORD}" | base64 -d
 
 # Reiniciar PostgreSQL
 kubectl delete pod postgresql-0 -n apps-dev

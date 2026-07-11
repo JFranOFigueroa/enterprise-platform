@@ -1,18 +1,23 @@
 # Backup & Restore
 
-> Procedimientos de backup y restore para la plataforma e IUMBIT.
+> Procedimientos de backup y restore para la plataforma y aplicaciones desplegadas.
 
 ## Backups
 
-### 1. Backup de PostgreSQL (IUMBIT)
+### 1. Backup de PostgreSQL (Aplicación)
 
 #### Backup Manual
 ```bash
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+DB_NAME="mi-app"
+
 # Ejecutar pg_dump dentro del pod
-kubectl exec -it postgresql-0 -n apps-dev -- pg_dump -U postgres iumbit > iumbit_$(date +%Y%m%d_%H%M%S).sql
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- pg_dump -U postgres ${DB_NAME} > ${APP_NAME}_$(date +%Y%m%d_%H%M%S).sql
 
 # O con kubectl cp
-kubectl exec postgresql-0 -n apps-dev -- pg_dump -U postgres iumbit > /tmp/iumbit_backup.sql
+kubectl exec postgresql-0 -n ${NAMESPACE} -- pg_dump -U postgres ${DB_NAME} > /tmp/${APP_NAME}_backup.sql
 ```
 
 #### Backup Automático (CronJob)
@@ -21,7 +26,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: postgres-backup
-  namespace: apps-dev
+  namespace: apps-dev  # Ajustar al namespace de tu aplicación
 spec:
   schedule: "0 2 * * *"  # Diario a las 2 AM
   jobTemplate:
@@ -35,12 +40,12 @@ spec:
             - /bin/sh
             - -c
             - |
-              pg_dump -h postgresql -U postgres iumbit | gzip > /backup/iumbit_$(date +%Y%m%d).sql.gz
+              pg_dump -h postgresql -U postgres mi-app | gzip > /backup/mi-app_$(date +%Y%m%d).sql.gz
             env:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: iumbit-secrets
+                  name: mi-app-secrets  # Ajustar al nombre de tu secret
                   key: DB_PASSWORD
             volumeMounts:
             - name: backup-storage
@@ -56,8 +61,12 @@ spec:
 
 #### Backup de Todos los Recursos
 ```bash
-# Backup completo del namespace apps-dev
-kubectl get all,configmaps,secrets,ingress -n apps-dev -o yaml > iumbit_backup_$(date +%Y%m%d).yaml
+# Variables
+NAMESPACE="apps-dev"
+APP_NAME="mi-app"
+
+# Backup completo del namespace
+kubectl get all,configmaps,secrets,ingress -n ${NAMESPACE} -o yaml > ${APP_NAME}_backup_$(date +%Y%m%d).yaml
 
 # Backup de ArgoCD
 kubectl get applications,applicationsets,appprojects -n argocd -o yaml > argocd_backup_$(date +%Y%m%d).yaml
@@ -71,8 +80,8 @@ kubectl get certificates,clusterissuers,issuers -A -o yaml > certmanager_backup_
 # Ver releases
 helm list -A
 
-# Backup de values
-helm get values iumbit -n apps-dev > iumbit_values_backup.yaml
+# Backup de values (ajustar nombre y namespace)
+helm get values mi-app -n apps-dev > mi-app_values_backup.yaml
 helm get values cert-manager -n cert-manager > certmanager_values_backup.yaml
 ```
 
@@ -80,11 +89,15 @@ helm get values cert-manager -n cert-manager > certmanager_values_backup.yaml
 
 #### Backup de Ansible
 ```bash
-# Backup de inventario y vars (incluye secrets)
+# Backup de inventario y vars
 tar -czf ansible_backup_$(date +%Y%m%d).tar.gz \
   automation/ansible/group_vars/ \
   automation/ansible/inventory/ \
   automation/ansible/host_vars/
+
+# Backup de app_vars de cada aplicación
+tar -czf app_vars_backup_$(date +%Y%m%d).tar.gz \
+  applications/*/app_vars/
 ```
 
 #### Backup del Repositorio
@@ -103,27 +116,41 @@ git push origin main
 
 #### Restore Manual
 ```bash
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+DB_NAME="mi-app"
+
 # Copiar backup al pod
-kubectl cp iumbit_backup.sql postgresql-0:/tmp/ -n apps-dev
+kubectl cp ${APP_NAME}_backup.sql postgresql-0:/tmp/ -n ${NAMESPACE}
 
 # Ejecutar restore
-kubectl exec -it postgresql-0 -n apps-dev -- psql -U postgres iumbit < /tmp/iumbit_backup.sql
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- psql -U postgres ${DB_NAME} < /tmp/${APP_NAME}_backup.sql
 ```
 
 #### Restore desde Backup Comprimido
 ```bash
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+DB_NAME="mi-app"
+
 # Copiar y descomprimir
-kubectl cp iumbit_backup.sql.gz postgresql-0:/tmp/ -n apps-dev
-kubectl exec -it postgresql-0 -n apps-dev -- gunzip /tmp/iumbit_backup.sql.gz
-kubectl exec -it postgresql-0 -n apps-dev -- psql -U postgres iumbit < /tmp/iumbit_backup.sql
+kubectl cp ${APP_NAME}_backup.sql.gz postgresql-0:/tmp/ -n ${NAMESPACE}
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- gunzip /tmp/${APP_NAME}_backup.sql.gz
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- psql -U postgres ${DB_NAME} < /tmp/${APP_NAME}_backup.sql
 ```
 
 ### 2. Restore de Recursos Kubernetes
 
 #### Restore desde YAML
 ```bash
-# Restore de IUMBIT
-kubectl apply -f iumbit_backup.yaml -n apps-dev
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+
+# Restore de la aplicación
+kubectl apply -f ${APP_NAME}_backup.yaml -n ${NAMESPACE}
 
 # Restore de ArgoCD
 kubectl apply -f argocd_backup.yaml -n argocd
@@ -134,11 +161,16 @@ kubectl apply -f certmanager_backup.yaml
 
 #### Restore de Helm Release
 ```bash
-# Restore de IUMBIT
-helm upgrade iumbit applications/iumbit \
-  -n apps-dev \
-  -f applications/iumbit/values.yaml \
-  -f applications/iumbit/values-dev.yaml
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+APP_PATH="applications/${APP_NAME}"
+
+# Restore de la aplicación
+helm upgrade ${APP_NAME} ${APP_PATH} \
+  -n ${NAMESPACE} \
+  -f ${APP_PATH}/values.yaml \
+  -f ${APP_PATH}/values-dev.yaml
 
 # Restore de cert-manager
 helm upgrade cert-manager jetstack/cert-manager \
@@ -150,7 +182,7 @@ helm upgrade cert-manager jetstack/cert-manager \
 
 #### Desde Backup
 ```bash
-# Aplicar Application generada por Ansible
+# Aplicar Applications generadas por Ansible
 cd automation/ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --tags gitops
 ```
@@ -182,8 +214,11 @@ vagrant up
 cd automation/ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
-# 3. Restore de PostgreSQL
-kubectl exec -it postgresql-0 -n apps-dev -- psql -U postgres iumbit < iumbit_backup.sql
+# 3. Restore de PostgreSQL (ajustar nombre y namespace)
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
+DB_NAME="mi-app"
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- psql -U postgres ${DB_NAME} < ${APP_NAME}_backup.sql
 ```
 
 ---
@@ -191,20 +226,24 @@ kubectl exec -it postgresql-0 -n apps-dev -- psql -U postgres iumbit < iumbit_ba
 ## Verificación Post-Restore
 
 ```bash
-# Verificar pods
-kubectl get pods -n apps-dev
+# Variables
+APP_NAME="mi-app"
+NAMESPACE="apps-dev"
 
-# Verificar IUMBIT
+# Verificar pods
+kubectl get pods -n ${NAMESPACE}
+
+# Verificar aplicación
 curl http://localhost:8080
 
 # Verificar base de datos
-kubectl exec -it postgresql-0 -n apps-dev -- psql -U postgres iumbit -c "SELECT COUNT(*) FROM auth.user;"
+kubectl exec -it postgresql-0 -n ${NAMESPACE} -- psql -U postgres ${DB_NAME} -c "SELECT COUNT(*) FROM auth.user;"
 
 # Verificar ArgoCD
 kubectl get app -n argocd
 
 # Verificar logs
-kubectl logs -f deployment/iumbit-backend -n apps-dev
+kubectl logs -f deployment/${APP_NAME}-backend -n ${NAMESPACE}
 ```
 
 ---
@@ -227,6 +266,7 @@ kubectl logs -f deployment/iumbit-backend -n apps-dev
 # 2. S3 bucket
 # 3. Disco externo
 
-# Ejemplo con S3
-aws s3 cp iumbit_backup.sql s3://my-backup-bucket/iumbit/
+# Ejemplo con S3 (ajustar nombre y bucket)
+APP_NAME="mi-app"
+aws s3 cp ${APP_NAME}_backup.sql s3://my-backup-bucket/${APP_NAME}/
 ```

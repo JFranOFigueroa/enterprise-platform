@@ -1,0 +1,39 @@
+---
+# Generic application deployment task
+# Called from main.yml in a loop
+#
+# Expected variable: app (from loop)
+# Required app fields: name, namespace, valuesFile, repoPath
+# The app_secrets variable is loaded from applications/<name>/app_vars/<name>.yml
+
+- name: "Deploy {{ app.name }}: Load app variables"
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../../../../applications/{{ app.name }}/app_vars/{{ app.name }}.yml"
+
+- name: "Deploy {{ app.name }}: Verify app metadata"
+  ansible.builtin.assert:
+    that:
+      - app.name is defined
+      - app.namespace is defined
+      - app.valuesFile is defined
+      - app.repoPath is defined
+    fail_msg: |
+      ============================================================
+      ERROR: {{ app.name }} app_vars missing required fields.
+      Required: name, namespace, valuesFile, repoPath
+      Location: applications/{{ app.name }}/app_vars/{{ app.name }}.yml
+      ============================================================
+
+- name: "Deploy {{ app.name }}: Generate ArgoCD Application"
+  ansible.builtin.template:
+    src: application.yaml.j2
+    dest: "/tmp/{{ app.name }}-application.yaml"
+    mode: "0600"
+
+- name: "Deploy {{ app.name }}: Apply Application"
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/{{ app.name }}-application.yaml"
+  register: app_result
+  changed_when: "'created' in app_result.stdout or 'configured' in app_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml

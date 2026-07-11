@@ -114,49 +114,17 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
-# IUMBIT Application: Deployed directly by Ansible with real secrets
-# iumbit.yaml was removed from bootstrap/gitops/applications/ so app-of-apps
-# doesn't manage it. Ansible generates this Application with helm.parameters
-# that inject real secrets from group_vars/secrets.yml, overriding the
-# CHANGE_ME placeholders in values-dev.yaml from the repo.
+# Application Deployment (Generic)
+# Reads app metadata from applications/<name>/app_vars/<name>.yml
+# Each application is self-contained - no platform-level app-specific config.
 # =============================================================================
 
-- name: Verify iumbit_secrets is defined
-  ansible.builtin.fail:
-    msg: |
-      ============================================================
-      ERROR: iumbit_secrets is NOT defined!
-      ============================================================
-      IUMBIT will NOT be deployed.
-
-      The variable 'iumbit_secrets' must be defined in
-      automation/ansible/group_vars/secrets.yml (gitignored).
-
-      Create the file with your real values and re-run:
-        ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
-      ============================================================
-  when: iumbit_secrets is not defined
-
-- name: Debug iumbit_secrets keys
-  ansible.builtin.debug:
-    msg: "iumbit_secrets loaded with {{ iumbit_secrets | length }} keys: {{ iumbit_secrets.keys() | list }}"
-  when: iumbit_secrets is defined
-
-- name: Generate patched IUMBIT Application with real secrets
-  ansible.builtin.template:
-    src: iumbit-application.yaml.j2
-    dest: /tmp/iumbit-application.yaml
-    mode: "0600"
-  when: iumbit_secrets is defined
-
-- name: Apply patched IUMBIT Application
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/iumbit-application.yaml"
-  register: iumbit_app_result
-  changed_when: "'created' in iumbit_app_result.stdout or 'configured' in iumbit_app_result.stdout"
-  when: iumbit_secrets is defined
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+- name: Deploy applications
+  ansible.builtin.include_tasks: deploy-application.yml
+  loop: "{{ applications | default([]) }}"
+  loop_control:
+    loop_var: app
+  when: applications is defined and applications | length > 0
 
 - name: Wait for cert-manager namespace to exist
   ansible.builtin.shell: |

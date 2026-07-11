@@ -4,12 +4,12 @@
 
 ## Escalado Horizontal (HPA)
 
-### 1. IUMBIT Backend
+### 1. Backend
 
 #### Ver HPA Actual
 ```bash
 kubectl get hpa -n apps-dev
-kubectl describe hpa iumbit-backend-hpa -n apps-dev
+kubectl describe hpa mi-app-backend-hpa -n apps-dev
 ```
 
 #### Crear HPA
@@ -17,13 +17,13 @@ kubectl describe hpa iumbit-backend-hpa -n apps-dev
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: iumbit-backend-hpa
+  name: mi-app-backend-hpa
   namespace: apps-dev
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: iumbit-backend
+    name: mi-app-backend
   minReplicas: 1
   maxReplicas: 5
   metrics:
@@ -48,24 +48,24 @@ kubectl apply -f hpa.yaml -n apps-dev
 
 #### Ver Métricas
 ```bash
-kubectl top pods -n apps-dev -l app=iumbit-backend
-kubectl get hpa iumbit-backend-hpa -n apps-dev -w
+kubectl top pods -n apps-dev -l app=mi-app-backend
+kubectl get hpa mi-app-backend-hpa -n apps-dev -w
 ```
 
-### 2. IUMBIT Frontend
+### 2. Frontend
 
 #### Crear HPA
 ```yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: iumbit-frontend-hpa
+  name: mi-app-frontend-hpa
   namespace: apps-dev
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: iumbit-frontend
+    name: mi-app-frontend
   minReplicas: 1
   maxReplicas: 3
   metrics:
@@ -85,7 +85,7 @@ spec:
 
 #### Editar Deployment
 ```bash
-kubectl edit deployment iumbit-backend -n apps-dev
+kubectl edit deployment mi-app-backend -n apps-dev
 ```
 
 #### Cambiar en YAML
@@ -94,7 +94,7 @@ spec:
   template:
     spec:
       containers:
-      - name: iumbit-backend
+      - name: mi-app-backend
         resources:
           requests:
             cpu: "250m"
@@ -106,7 +106,7 @@ spec:
 
 #### Aplicar con kubectl
 ```bash
-kubectl patch deployment iumbit-backend -n apps-dev --type='json' -p='[
+kubectl patch deployment mi-app-backend -n apps-dev --type='json' -p='[
   {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu", "value": "500m"},
   {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory", "value": "1Gi"},
   {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu", "value": "2000m"},
@@ -209,13 +209,13 @@ kubectl get events -n apps-dev | grep -i scale
 
 ## Recomendaciones
 
-### Backend IUMBIT
+### Backend
 - **Mínimo**: 1 réplica (desarrollo)
 - **Máximo**: 5 réplicas (producción)
 - **CPU**: Escalar cuando > 70%
 - **Memory**: Escalar cuando > 80%
 
-### Frontend IUMBIT
+### Frontend
 - **Mínimo**: 1 réplica
 - **Máximo**: 3 réplicas
 - **CPU**: Escalar cuando > 70%
@@ -237,8 +237,8 @@ kubectl get hpa -n apps-dev
 kubectl top pods -n apps-dev
 
 # Forzar escalado manual
-kubectl scale deployment iumbit-backend --replicas=3 -n apps-dev
+kubectl scale deployment mi-app-backend --replicas=3 -n apps-dev
 
 # Verificar
-kubectl get pods -n apps-dev -l app=iumbit-backend
+kubectl get pods -n apps-dev -l app=mi-app-backend
 ```

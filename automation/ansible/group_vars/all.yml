@@ -35,3 +35,11 @@ common_packages:
   - lsb-release
   - chrony
   - ufw
+
+# ======================================
+# Applications to deploy
+# ======================================
+# Each app must have: applications/<name>/app_vars/<name>.yml
+# with app metadata (name, namespace, valuesFile, repoPath) and secrets.
+applications:
+  - name: iumbit
