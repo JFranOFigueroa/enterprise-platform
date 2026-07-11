@@ -56,11 +56,11 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 - [x] UFW: puertos 80/443 habilitados para Ingress
 - [x] Ingress hosts: iumbit-dev.local + localhost (acceso local sin TLS)
 - [x] IUMBIT accesible via http://localhost:8080
+- [x] Runbooks de operación (day2, troubleshooting, backup-restore, scaling, monitoring)
 
 **Pendiente:**
 - [ ] Configurar HPA para IUMBIT
 - [ ] Tests de humo
-- [ ] Runbooks de operación
 
 ---
 
