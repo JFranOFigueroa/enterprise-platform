@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "iumbit.labels" . | nindent 4 }}
 data:
-  SERVER_PORT: {{ .Values.config.serverPort | default "8079" | quote }}
+  SERVER_PORT: {{ .Values.config.serverPort | default "8080" | quote }}
   DB_HOST: {{ include "iumbit.fullname" . }}-postgresql
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresql.auth.database | quote }}

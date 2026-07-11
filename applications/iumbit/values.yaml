@@ -27,7 +27,7 @@ backend:
   image:
     repository: nitesoftmx/iumbit-wildfly-app
     tag: "v1.0.0-dev.16"
-  port: 8079
+  port: 8080
   replicas: 1
   resources:
     requests:
@@ -73,7 +73,7 @@ secrets:
   mailPassword: "CHANGE_ME"
 
 config:
-  serverPort: "8079"
+  serverPort: "8080"
   dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
   checkitFrontRegisterView: "http://192.168.0.101:8080/register"
 
@@ -92,5 +92,5 @@ ingress:
         - path: /check-it-1.0.0-dev.16
           pathType: Prefix
           serviceName: backend
-          servicePort: 8079
+          servicePort: 8080
   tls: []
