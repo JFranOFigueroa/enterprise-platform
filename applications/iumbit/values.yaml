@@ -62,6 +62,8 @@ frontend:
     enabled: false
 
 secrets:
+  dbUsername: "CHANGE_ME"
+  dbPassword: "CHANGE_ME"
   jwtSecretKey: "CHANGE_ME"
   googleClientId: "CHANGE_ME"
   googleClientSecret: "CHANGE_ME"

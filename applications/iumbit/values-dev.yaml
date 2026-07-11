@@ -28,6 +28,8 @@ frontend:
     enabled: false
 
 secrets:
+  dbUsername: "postgres"
+  dbPassword: "postgres"
   jwtSecretKey: "CHANGE_ME"
   googleClientId: "CHANGE_ME"
   googleClientSecret: "CHANGE_ME"
