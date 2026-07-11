@@ -51,3 +51,85 @@
   changed_when: true
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Bootstrap GitOps: Clone repo, deploy platform resources, apply Applications
+# =============================================================================
+
+- name: Install git
+  ansible.builtin.apt:
+    name: git
+    state: present
+
+- name: Clone enterprise-platform repository
+  ansible.builtin.git:
+    repo: https://github.com/JFranOFigueroa/enterprise-platform.git
+    dest: /opt/enterprise-platform
+    version: main
+    force: true
+
+- name: Apply local-path-provisioner
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/storage/local-path-provisioner.yaml"
+  register: lpp_result
+  changed_when: "'created' in lpp_result.stdout or 'configured' in lpp_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for ArgoCD server to be ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Available deployment/argocd-server
+      -n gitops --timeout=180s
+  register: argocd_wait
+  until: argocd_wait.rc == 0
+  retries: 12
+  delay: 15
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Apply ArgoCD AppProject
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/components/project.yaml"
+  register: project_result
+  changed_when: "'created' in project_result.stdout or 'configured' in project_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Apply app-of-apps
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/bootstrap/gitops/argocd/app-of-apps.yaml"
+  register: appofapps_result
+  changed_when: "'created' in appofapps_result.stdout or 'configured' in appofapps_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Apply app-of-platform
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/bootstrap/gitops/argocd/app-of-platform.yaml"
+  register: appofplatform_result
+  changed_when: "'created' in appofplatform_result.stdout or 'configured' in appofplatform_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cert-manager webhook to be ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Available deployment/cert-manager-webhook
+      -n cert-manager --timeout=300s
+  register: cm_webhook_wait
+  until: cm_webhook_wait.rc == 0
+  retries: 15
+  delay: 20
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Apply ClusterIssuers
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /opt/enterprise-platform/platform/certificates/clusterissuers.yaml"
+  register: issuers_result
+  changed_when: "'created' in issuers_result.stdout or 'configured' in issuers_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
