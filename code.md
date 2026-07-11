@@ -34,49 +34,93 @@ enterprise-platform/
 │   └── README.md
 ├── applications/                           # Aplicaciones que consumen la plataforma
 │   └── iumbit/                             # Helm chart completo (24 archivos)
+│       ├── Chart.yaml
+│       ├── values.yaml                     # PLACEHOLDERS (CHANGE_ME)
+│       ├── values-dev.yaml                 # PLACEHOLDERS (CHANGE_ME)
+│       ├── sql/                            # Liquibase SQL (schema + seed)
+│       └── templates/
+│           ├── secrets.yaml                # K8s Secret (Helm templated)
+│           ├── configmap.yaml              # ConfigMap (11 keys)
+│           ├── ingress.yaml                # Multi-service (frontend + backend)
+│           ├── backend/
+│           │   ├── deployment.yaml
+│           │   ├── service.yaml
+│           │   └── hpa.yaml
+│           ├── frontend/
+│           │   ├── deployment.yaml
+│           │   ├── service.yaml
+│           │   └── hpa.yaml
+│           └── postgresql/
+│               ├── statefulset.yaml
+│               ├── service.yaml
+│               └── configmap-initdb.yaml
 ├── automation/                             # Automatización
-│   └── ansible/                            # Ansible: roles, playbooks, inventarios
+│   └── ansible/
+│       ├── run-ansible.sh                  # Wrapper portable (SSH fix, temp inventory)
+│       ├── ansible.cfg
+│       ├── inventory/
+│       │   ├── local-lab/hosts.yml
+│       │   ├── onprem/hosts.yml
+│       │   ├── cloud-digitalocean/
+│       │   └── cloud-aws/
+│       ├── playbooks/
+│       │   ├── site.yml                    # Orquestador maestro (4 fases)
+│       │   ├── 01-bootstrap-host.yml
+│       │   ├── 02-network.yml
+│       │   ├── 03-cluster.yml
+│       │   └── 04-gitops.yml
+│       ├── roles/
+│       │   ├── common/
+│       │   ├── ubuntu/
+│       │   ├── debian/
+│       │   ├── containerd/
+│       │   ├── rke2/
+│       │   └── gitops/
+│       │       ├── tasks/main.yml          # ArgoCD + platform + IUMBIT deploy
+│       │       └── templates/
+│       │           └── iumbit-application.yaml.j2  # Patched ArgoCD App
+│       ├── group_vars/
+│       │   ├── all.yml                     # Global vars
+│       │   └── secrets.yml                 # IUMBIT secrets (GITIGNORED)
+│       └── host_vars/
+│           ├── master-01.yml
+│           ├── worker-01.yml
+│           └── worker-02.yml
 ├── bootstrap/                              # Bootstrap de la plataforma
-│   ├── cluster/rke2/
-│   ├── gitops/                             # ArgoCD install + app-of-apps
-│   ├── networking/
-│   ├── platform/
-│   └── storage/
-├── docs/
-│   └── documents-for-work-this-repo/       # 14 documentos de arquitectura
-├── environments/                           # Overrides por ambiente
-│   ├── dev/
-│   ├── qa/
-│   ├── staging/
-│   └── production/
-├── infraestructure/                        # Cloud-agnostic infrastructure
-│   ├── cloud/                              # DigitalOcean, AWS, Linode, Vultr, Hetzner
-│   ├── local-lab/                          # Vagrant + VMware, Terraform + Proxmox
-│   └── onprem/                             # Servidores físicos / VPS existentes
-├── OLD_Architecture/                       # Docker Compose legacy (referencia)
+│   └── gitops/
+│       ├── argocd/
+│       │   ├── app-of-apps.yaml            # Enterprise apps (no iumbit)
+│       │   └── app-of-platform.yaml        # Platform components
+│       └── applications/                   # (iumbit.yaml removed - managed by Ansible)
 ├── platform/                               # Servicios compartidos de plataforma
 │   ├── certificates/
-│   ├── gitops/
-│   ├── ingress/
+│   │   ├── cert-manager-values.yaml
+│   │   └── clusterissuers.yaml
+│   ├── components/
+│   │   ├── project.yaml                    # AppProject
+│   │   └── platform-apps.yaml              # ApplicationSet
 │   ├── logging/
+│   │   ├── loki-values.yaml
+│   │   └── promtail-values.yaml
 │   ├── monitoring/
-│   ├── observability/
-│   ├── policies/
-│   ├── security/
-│   ├── storage/
-│   └── tracing/
+│   │   └── kube-prometheus-stack-values.yaml
+│   └── storage/
+│       └── local-path-provisioner.yaml
+├── infraestructure/                        # Cloud-agnostic infrastructure
+│   ├── cloud/
+│   ├── local-lab/
+│   │   └── vagrant/
+│   │       ├── Vagrantfile
+│   │       └── scripts/
+│   └── onprem/
+├── docs/
+├── OLD_Architecture/
 ├── tests/
-│   ├── disaster-recovery/
-│   ├── integration/
-│   ├── performance/
-│   └── smoke/
-└── tools/
-    ├── cli/
-    ├── generators/
-    └── templates/golden-path-app.md
+├── tools/
+├── context.md                             # Contexto del proyecto
+├── code.md                                # Referencia de código
+└── .gitignore
 ```
-
-**Total: ~140 archivos creados**
 
 ---
 
@@ -87,175 +131,137 @@ enterprise-platform/
 ```text
 automation/ansible/
 ├── ansible.cfg
-├── run-ansible.sh                          # Wrapper portable (nuevo)
+├── run-ansible.sh                          # Wrapper portable
 ├── inventory/
-│   ├── local-lab/                          # Desarrollo (Vagrant)
-│   ├── onprem/                             # VPS / servidores físicos
-│   ├── cloud-digitalocean/                 # DigitalOcean
-│   └── cloud-aws/                          # AWS
+│   ├── local-lab/hosts.yml
+│   ├── onprem/hosts.yml
+│   ├── cloud-digitalocean/
+│   └── cloud-aws/
 ├── playbooks/
-│   ├── site.yml                            # Orquestador maestro
-│   ├── 01-bootstrap-host.yml               # Fase 1: SO
-│   ├── 02-network.yml                      # Fase 2: Red
-│   ├── 03-cluster.yml                      # Fase 3: RKE2
-│   └── 04-gitops.yml                       # Fase 4: ArgoCD
+│   ├── site.yml
+│   ├── 01-bootstrap-host.yml
+│   ├── 02-network.yml
+│   ├── 03-cluster.yml
+│   └── 04-gitops.yml
 ├── roles/
 │   ├── common/                             # Tareas compartidas
 │   ├── ubuntu/                             # Específico Ubuntu
 │   ├── debian/                             # Específico Debian
 │   ├── containerd/                         # Runtime
 │   ├── rke2/                               # Kubernetes
-│   └── gitops/                             # ArgoCD
+│   └── gitops/                             # ArgoCD + platform deploy
+│       ├── tasks/main.yml
+│       ├── templates/
+│       │   └── iumbit-application.yaml.j2
+│       └── defaults/main.yml
 ├── group_vars/
-│   ├── all.yml
-│   └── rke2_servers.yml
+│   ├── all.yml                             # Global vars
+│   └── secrets.yml                         # IUMBIT secrets (GITIGNORED)
 └── host_vars/
     ├── master-01.yml
     ├── worker-01.yml
     └── worker-02.yml
 ```
 
-### 2.2 ansible.cfg
-
-```ini
-[defaults]
-inventory = inventory/dev/hosts.yml
-roles_path = roles
-remote_user = root
-host_key_checking = False
-retry_files_enabled = False
-stdout_callback = yaml
-callback_whitelist = timer
-
-[privilege_escalation]
-become = True
-become_method = sudo
-become_user = root
-
-[ssh_connection]
-pipelining = True
-ssh_args = -o ControlMaster=auto -o ControlPersist=60s
-```
-
-### 2.3 run-ansible.sh (Wrapper Portable)
+### 2.2 run-ansible.sh (Wrapper Portable)
 
 ```bash
 #!/bin/bash
-# Portable wrapper that ensures ansible.cfg is loaded from the project directory.
+# Portable wrapper that:
+# 1. Copies SSH keys to /tmp/ with correct permissions (WSL fix)
+# 2. Creates temp inventory with fixed SSH paths
+# 3. Copies group_vars/host_vars to temp inventory
+# 4. Sets ANSIBLE_CONFIG explicitly (WSL world-writable fix)
+#
 # Usage: ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 export ANSIBLE_CONFIG="${SCRIPT_DIR}/ansible.cfg"
+
+# SSH Key Fix: copies to /tmp/enterprise-platform-ssh with chmod 600
+# Creates temp inventory in /tmp/enterprise-platform-inventory-*/
+# Copies group_vars and host_vars to temp inventory
 
 exec ansible-playbook "$@"
 ```
 
-### 2.4 role: common (tasks/main.yml)
+### 2.3 role: gitops (tasks/main.yml)
+
+El rol gitops ejecuta 4 tareas principales:
+1. **Instala Helm + ArgoCD** via Helm chart
+2. **Clona el repo** a `/opt/enterprise-platform`
+3. **Aplica platform resources**: local-path-provisioner, AppProject, app-of-apps, app-of-platform, ClusterIssuers
+4. **Genera y aplica IUMBIT Application** con secrets reales via `helm.parameters`
 
 ```yaml
----
-# Enterprise Platform - Common Role
-# Shared tasks for ALL Linux distributions
-
-- name: Set timezone
-  ansible.builtin.timezone:
-    name: "{{ timezone }}"
-  tags: [common, time]
-
-- name: Configure NTP (chrony)
-  ansible.builtin.apt:
-    name: chrony
-    state: present
-  notify: restart_chrony
-  tags: [common, ntp]
-
-- name: Deploy chrony configuration
-  ansible.builtin.template:
-    src: chrony.conf.j2
-    dest: /etc/chrony/chrony.conf
-    mode: "0644"
-  notify: restart_chrony
-  tags: [common, ntp]
-
-- name: Disable swap permanently
-  ansible.builtin.command: swapoff -a
-  changed_when: true
-  tags: [common, swap]
-
-- name: Remove swap from fstab
-  ansible.builtin.lineinfile:
-    path: /etc/fstab
-    regexp: '.*swap.*'
-    state: absent
-  tags: [common, swap]
-
-- name: Enable kernel modules for Kubernetes
-  community.general.modprobe:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - br_netfilter
-    - overlay
-  tags: [common, kernel]
-
-- name: Deploy Kubernetes sysctl configuration
-  ansible.builtin.template:
-    src: sysctl.conf.j2
-    dest: /etc/sysctl.d/99-kubernetes.conf
-    mode: "0644"
-  notify: restart_sysctl
-  tags: [common, sysctl]
-
-- name: Install common packages
-  ansible.builtin.apt:
-    name: "{{ common_packages }}"
-    state: present
-    update_cache: true
-  tags: [common, packages]
-
-- name: Configure locale
-  ansible.builtin.locale_gen:
-    name: en_US.UTF-8
-    state: present
-  tags: [common, locale]
+# Flujo del rol gitops:
+# 1. helm upgrade --install argocd (NodePort 30080/30443)
+# 2. git clone enterprise-platform
+# 3. kubectl apply local-path-provisioner
+# 4. kubectl apply app-of-apps (sin iumbit.yaml)
+# 5. kubectl apply app-of-platform (ApplicationSet con ServerSideApply)
+# 6. template iumbit-application.yaml.j2 → /tmp/iumbit-application.yaml
+# 7. kubectl apply iumbit-application (con helm.parameters)
+# 8. Wait for cert-manager → Apply ClusterIssuers
 ```
 
-### 2.5 role: rke2 (tasks/server.yml)
+### 2.4 iumbit-application.yaml.j2
+
+```yaml
+# Jinja2 template - Ansible genera este Application con secrets reales
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: iumbit
+  namespace: gitops
+spec:
+  project: enterprise-platform
+  source:
+    repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
+    targetRevision: main
+    path: applications/iumbit
+    helm:
+      valueFiles:
+        - values-dev.yaml
+      parameters:
+{% for key, value in iumbit_secrets.items() %}
+        - name: "{{ key }}"
+          value: "{{ value }}"
+{% endfor %}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+### 2.5 group_vars/secrets.yml (GITIGNORED)
 
 ```yaml
 ---
-- name: Download RKE2 install script
-  ansible.builtin.get_url:
-    url: https://get.rke2.io
-    dest: /tmp/rke2-install.sh
-    mode: "0755"
-
-- name: Install RKE2 server
-  ansible.builtin.command:
-    cmd: INSTALL_RKE2_TYPE=server INSTALL_RKE2_VERSION={{ rke2_version }} sh /tmp/rke2-install.sh
-    creates: /usr/local/bin/rke2-server
-
-- name: Deploy RKE2 server configuration
-  ansible.builtin.template:
-    src: rke2-server.yaml.j2
-    dest: /etc/rancher/rke2/config.yaml
-    mode: "0644"
-  notify: restart_rke2_server
-
-- name: Enable and start RKE2 server service
-  ansible.builtin.systemd:
-    name: rke2-server
-    enabled: true
-    state: started
-    daemon_reload: true
-
-- name: Wait for RKE2 server to be ready
-  ansible.builtin.wait_for:
-    path: /etc/rancher/rke2/rke2.yaml
-    state: present
-    timeout: 600
+# IUMBIT Dev Secrets - real values injected via helm.parameters
+iumbit_secrets:
+  postgresql.auth.postgresPassword: "postgres"
+  secrets.jwtSecretKey: "404E6352..."
+  secrets.googleClientId: "359418242862-..."
+  secrets.googleClientSecret: "GOCSPX-..."
+  secrets.microsoftClientId: "4429a8d6-..."
+  secrets.microsoftTenantId: "261809a4-..."
+  secrets.mailUsername: "...@gmail.com"
+  secrets.mailPassword: "mbms uehx lxal arbu"
+  config.serverPort: "8079"
+  config.dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
+  config.checkitFrontRegisterView: "http://192.168.0.101:8080/register"
+  frontend.vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
+  frontend.vueCliTest: "true"
+  frontend.vueAppGoogleClientId: "359418242862-..."
+  frontend.vueAppMicrosoftClientId: "4429a8d6-..."
+  frontend.vueAppMicrosoftTenantId: "common"
 ```
 
 ---
@@ -277,22 +283,6 @@ exec ansible-playbook "$@"
 
 - name: Phase 4 - GitOps Engine
   import_playbook: 04-gitops.yml
-```
-
-### 01-bootstrap-host.yml
-
-```yaml
----
-- name: Bootstrap all hosts
-  hosts: all
-  gather_facts: true
-  become: true
-  roles:
-    - role: common
-      tags: [common, bootstrap]
-    - role: "{{ 'ubuntu' if ansible_distribution == 'Ubuntu' else 'debian' }}"
-      tags: [os_specific, bootstrap]
-      when: ansible_distribution in ['Ubuntu', 'Debian']
 ```
 
 ---
@@ -345,89 +335,114 @@ all:
     ansible_become_method: sudo
 ```
 
-### Variables por Ambiente
-
-| Variable | local-lab | onprem | cloud-digitalocean | cloud-aws |
-|----------|-----------|--------|--------------------|-----------|
-| `pod_cidr` | `10.42.0.0/16` | `10.100.0.0/16` | `10.244.0.0/16` | `10.200.0.0/16` |
-| `service_cidr` | `10.43.0.0/16` | `10.101.0.0/16` | `10.245.0.0/16` | `10.201.0.0/16` |
-| `timezone` | `America/Mexico_City` | `UTC` | `UTC` | `UTC` |
-| `rke2_version` | `v1.31.4+rke2r1` | `v1.31.4+rke2r1` | `v1.31.4+rke2r1` | `v1.31.4+rke2r1` |
-| `rke2_cni` | `calico` | `calico` | `calico` | `calico` |
-| `ansible_user` | `vagrant` | `ubuntu` | `root` | `ubuntu` |
-
-### Comandos de Inventario
-
-```bash
-# Local lab (using wrapper for portability)
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
-
-# On-prem
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml
-
-# DigitalOcean (static)
-./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml
-
-# DigitalOcean (dynamic)
-./run-ansible.sh -i inventory/cloud-digitalocean/digitalocean.yml playbooks/site.yml
-
-# AWS (dynamic)
-./run-ansible.sh -i inventory/cloud-aws/aws_ec2.yml playbooks/site.yml
-
-# Or use ansible-playbook directly if ANSIBLE_CONFIG is set
-ansible-playbook -i inventory/local-lab/hosts.yml playbooks/site.yml
-```
-
 ---
 
 ## 5. Helm Chart IUMBIT
 
-### Chart.yaml
-
-```yaml
-apiVersion: v2
-name: iumbit
-description: IUMBIT - Enterprise time-attendance and HR management platform
-type: application
-version: 0.1.0
-appVersion: "1.0.0-dev.16"
-```
-
-### values.yaml (Base)
+### values.yaml (Base - CHANGE_ME placeholders)
 
 | Componente | Imagen | Puerto | Replicas | CPU req | Mem req |
 |------------|--------|--------|----------|---------|---------|
 | PostgreSQL | `postgres:18.0-trixie` | 5432 | 1 | 250m | 512Mi |
-| Backend | `nitesoftmx/iumbit-wildfly-app:v1.0.0-dev.16` | 8080 | 1 | 500m | 512Mi |
+| Backend | `nitesoftmx/iumbit-wildfly-app:v1.0.0-dev.16` | 8079 | 1 | 500m | 512Mi |
 | Frontend | `nitesoftmx/iumbit-nginx-web:v1.0.0-dev.3` | 8080 | 1 | 100m | 128Mi |
 
-### values-production.yaml
+### values-dev.yaml (Dev overrides - CHANGE_ME placeholders)
 
-| Componente | Replicas | HPA Min/Max | CPU Target | Storage | TLS |
-|------------|----------|-------------|------------|---------|-----|
-| PostgreSQL | 3 | N/A | N/A | 50Gi premium-rwo | N/A |
-| Backend | 3 | 2/10 | 70% | N/A | N/A |
-| Frontend | 3 | 2/20 | 70% | N/A | N/A |
+- Global environment: dev
+- PostgreSQL: 10Gi storage, 250m/512Mi
+- Backend: 1 replica, HPA disabled
+- Frontend: 1 replica, HPA disabled
+- Ingress: `iumbit-dev.local`
 
-### Despliegue
+### Secrets Management
 
-```bash
-# Dev
-helm install iumbit applications/iumbit/ \
-  -f applications/iumbit/values-dev.yaml \
-  -n apps-dev --create-namespace
-
-# Production
-helm install iumbit applications/iumbit/ \
-  -f applications/iumbit/values-production.yaml \
-  -n apps-prod --create-namespace
 ```
+values.yaml              →  CHANGE_ME placeholders (committed)
+values-dev.yaml          →  CHANGE_ME placeholders (committed)
+group_vars/secrets.yml   →  real secrets (GITIGNORED)
+run-ansible.sh           →  reads secrets.yml
+    ↓
+Jinja2 template generates patched ArgoCD Application
+    ↓
+helm.parameters override CHANGE_ME in values-dev.yaml
+    ↓
+ArgoCD deploys with real secrets
+```
+
+### Ingress Routing
+
+| Path | Service | Port | Target |
+|------|---------|------|--------|
+| `/` | iumbit-frontend | 8080 | Vue.js static files |
+| `/check-it-1.0.0-dev.16` | iumbit-backend | 8079 | WildFly API |
 
 ---
 
 ## 6. GitOps - ArgoCD
 
-### ArgoCD Application (IUMBIT)
+### ArgoCD Architecture
+
+```text
+app-of-platform (ApplicationSet)
+├── platform-cert-manager    → Helm chart from Jetstack
+├── platform-kube-prometheus → Helm chart from prometheus-community
+├── platform-loki            → Helm chart from grafana
+└── platform-promtail        → Helm chart from grafana
+
+app-of-apps (Directory source)
+└── (no iumbit - managed by Ansible directly)
+
+IUMBIT Application (standalone, managed by Ansible)
+└── values-dev.yaml + helm.parameters (real secrets)
+```
+
+### platform-apps.yaml (ApplicationSet)
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-apps
+  namespace: gitops
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          - name: cert-manager
+            chart: cert-manager
+            chartVersion: v1.17.1
+            helmRepoURL: https://charts.jetstack.io
+            valuesPath: platform/certificates/cert-manager-values.yaml
+            namespace: cert-manager
+          - name: kube-prometheus-stack
+            chart: kube-prometheus-stack
+            chartVersion: 72.5.1
+            helmRepoURL: https://prometheus-community.github.io/helm-charts
+            valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
+            namespace: platform-monitoring
+          - name: loki
+            chart: loki
+            chartVersion: 6.24.0
+            helmRepoURL: https://grafana.github.io/helm-charts
+            valuesPath: platform/logging/loki-values.yaml
+            namespace: platform-logging
+          - name: promtail
+            chart: promtail
+            chartVersion: 6.16.6
+            helmRepoURL: https://grafana.github.io/helm-charts
+            valuesPath: platform/logging/promtail-values.yaml
+            namespace: platform-logging
+  template:
+    spec:
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true    # Required for large CRDs (>256KB)
+```
+
+### IUMBIT Application (standalone)
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -438,12 +453,14 @@ metadata:
 spec:
   project: enterprise-platform
   source:
-    repoURL: https://github.com/<org>/enterprise-platform.git
+    repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
     targetRevision: main
     path: applications/iumbit
     helm:
       valueFiles:
         - values-dev.yaml
+      parameters:
+        # Ansible injects real secrets here via Jinja2 template
   destination:
     server: https://kubernetes.default.svc
     namespace: apps-dev
@@ -454,6 +471,27 @@ spec:
     syncOptions:
       - CreateNamespace=true
 ```
+
+### cert-manager Configuration
+
+```yaml
+# cert-manager-values.yaml
+crds:
+  enabled: true
+  keep: true
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+```
+
+### ClusterIssuers
+
+| Name | Type | Ready |
+|------|------|-------|
+| selfsigned-issuer | SelfSigned | True |
+| letsencrypt-staging | ACME (Let's Encrypt staging) | False (expected) |
+| letsencrypt-production | ACME (Let's Encrypt production) | False (expected) |
 
 ---
 
@@ -467,30 +505,6 @@ NODES = [
   { name: "ep-worker-01", hostname: "worker-01", ip: "192.168.56.11", cpus: 2, memory: 4096, role: "agent" },
   { name: "ep-worker-02", hostname: "worker-02", ip: "192.168.56.12", cpus: 2, memory: 4096, role: "agent" }
 ]
-
-Vagrant.configure("2") do |config|
-  config.vm.box = "bento/ubuntu-24.04"
-  config.vm.box_architecture = "amd64"
-  config.vm.synced_folder ".", "/vagrant", disabled: true
-
-  config.vm.provider "vmware_desktop" do |vmware|
-    vmware.allowlist_verified = true
-  end
-
-  NODES.each do |node|
-    config.vm.define node[:name] do |cfg|
-      cfg.vm.hostname = node[:hostname]
-      cfg.vm.network "private_network", ip: node[:ip]
-      cfg.vm.provider "vmware_desktop" do |vmware|
-        vmware.vmx["memsize"] = node[:memory].to_s
-        vmware.vmx["numvcpus"] = node[:cpus].to_s
-        vmware.vmx["guestOS"] = "ubuntu-64"
-        vmware.vmx["displayName"] = node[:name]
-      end
-      cfg.vm.provision "shell", path: "scripts/bootstrap.sh", args: [node[:role], node[:ip]]
-    end
-  end
-end
 ```
 
 ### Comandos
@@ -505,23 +519,6 @@ vagrant destroy -f             # Destruir todo
 ---
 
 ## 8. Terraform - DigitalOcean
-
-### Recursos
-
-```hcl
-resource "digitalocean_droplet" "server" {
-  name   = "${var.project_name}-server-01"
-  region = var.region           # nyc3
-  size   = var.droplet_size_server  # s-4vcpu-8gb
-  image  = var.droplet_image        # ubuntu-24-04-x64
-}
-
-resource "digitalocean_droplet" "agent" {
-  count  = var.agent_count     # 2
-  name   = "${var.project_name}-agent-0${count.index + 1}"
-  size   = var.droplet_size_worker  # s-2vcpu-4gb
-}
-```
 
 ### Costo Estimado
 
@@ -546,35 +543,14 @@ resource "digitalocean_droplet" "agent" {
 
 ---
 
-## 10. Plataforma - Ingress
-
-```yaml
-controller:
-  replicaCount: 2
-  service:
-    type: LoadBalancer
-  config:
-    use-forwarded-headers: "true"
-    ssl-protocols: "TLSv1.2 TLSv1.3"
-    proxy-body-size: "50m"
-    hsts: "true"
-    enable-cors: "true"
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
-```
-
----
-
-## 11. Ports Summary
+## 10. Ports Summary
 
 | Puerto | Servicio | Protocolo | Exposición |
 |--------|----------|-----------|------------|
 | 22 | SSH | TCP | Externa |
 | 6443 | Kubernetes API | TCP | Externa |
 | 2379-2380 | etcd | TCP | Interna |
-| 8080 | WildFly/IUMBIT Backend | TCP | Ingress |
+| 8079 | WildFly/IUMBIT Backend | TCP | Ingress |
 | 8080 | Nginx/IUMBIT Frontend | TCP | Ingress |
 | 10250 | Kubelet API | TCP | Interna |
 | 8472 | VXLAN | UDP | Interna |
@@ -584,3 +560,32 @@ controller:
 | 30080 | ArgoCD HTTP | TCP | NodePort |
 | 30443 | ArgoCD HTTPS | TCP | NodePort |
 | 30000-32767 | NodePort range | TCP | Externa |
+
+---
+
+## 11. Comandos de Referencia Rápida
+
+```bash
+# Bootstrap completo (zero-intervention)
+vagrant destroy -f && vagrant up && ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Solo Ansible (si VMs ya existen)
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Verificar estado del cluster
+kubectl get nodes
+kubectl get pods -A
+
+# Verificar ArgoCD
+kubectl get applications -n gitops
+kubectl get applicationsets -n gitops
+
+# Verificar IUMBIT
+kubectl get pods -n apps-dev
+kubectl get ingress -n apps-dev
+
+# Verificar platform
+kubectl get pods -n cert-manager
+kubectl get pods -n platform-monitoring
+kubectl get pods -n platform-logging
+```

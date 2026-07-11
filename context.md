@@ -26,18 +26,21 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 ### Fase 2: Implementación (En progreso)
 
 **Completado:**
-- [x] Estructura del repositorio (~140 archivos)
+- [x] Estructura del repositorio (~150 archivos)
 - [x] Ansible roles: common, ubuntu, debian, containerd, rke2, gitops
 - [x] Ansible playbooks: site.yml (4 fases)
 - [x] Inventarios multi-ambiente: local-lab, onprem, cloud-digitalocean, cloud-aws
-- [x] Helm chart IUMBIT completo (24 archivos)
-- [x] GitOps: ArgoCD bootstrap + app-of-apps + IUMBIT application
+- [x] Helm chart IUMBIT completo (secrets, configmap, ingress multi-service, HPA)
+- [x] GitOps: ArgoCD bootstrap + app-of-platform + ApplicationSet
+- [x] IUMBIT desplegado via Ansible + helm.parameters (secrets inyectados)
+- [x] Ingress routing: `/` → frontend, `/check-it-1.0.0-dev.16*` → backend
+- [x] Secrets management via group_vars/secrets.yml (gitignored) + Ansible injection
 - [x] Vagrant: Vagrantfile + bootstrap.sh + install-prereqs.sh
 - [x] Terraform Proxmox, DigitalOcean, AWS
 - [x] On-prem: prepare-server.sh + cloud-init
 - [x] Plataforma: ingress, monitoring, logging, certificates, gitops values
-- [x] .gitignore comprehensivo
-- [x] run-ansible.sh wrapper portable
+- [x] .gitignore comprehensivo (excluye secrets, kubeconfig, .env)
+- [x] run-ansible.sh wrapper portable (SSH fix, temp inventory, key copy)
 - [x] SSH keys con paths relativos (portable)
 - [x] ansible_host: host.docker.internal (WSL2 compatible)
 
@@ -61,6 +64,7 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 ### Decisión de OS: Ubuntu (referencia)
 ### Decisión de K8s: RKE2
 ### Decisión de Automatización: Ansible
+### Decisión de Secrets: Ansible inyecta via helm.parameters (group_vars/secrets.yml gitignored)
 
 ---
 
@@ -99,23 +103,63 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 | Componente | Versión | Propósito |
 |------------|---------|-----------|
 | RKE2 | v1.31.4+rke2r1 | Kubernetes |
-| ArgoCD | v2.13.3 | GitOps |
-| NGINX Ingress | 4.11.x | Ingress Controller |
-| cert-manager | latest | TLS |
-| Prometheus | 0.77.x | Métricas |
+| ArgoCD | v2.13.3 (chart 7.3.0) | GitOps |
+| NGINX Ingress | RKE2 bundled (kube-system) | Ingress Controller (hostPort 80/443) |
+| cert-manager | v1.17.1 | TLS |
+| Prometheus | 0.77.x (kube-prometheus-stack 72.5.1) | Métricas |
 | Grafana | 11.3.0 | Dashboards |
-| Loki | latest | Logs |
+| Loki | 6.24.0 | Logs (singleBinary, filesystem storage) |
+| Promtail | 6.16.6 | Log shipping |
+| local-path-provisioner | v0.0.36 | Default StorageClass |
 
 ### Capa de Aplicación
-| Componente | Versión | Propósito |
-|------------|---------|-----------|
-| PostgreSQL | 18.0 | Base de datos |
-| WildFly | dev.16 | Backend Java |
-| Nginx/Vue.js | dev.3 | Frontend |
+| Componente | Versión | Puerto | Propósito |
+|------------|---------|--------|-----------|
+| PostgreSQL | 18.0-trixie | 5432 | Base de datos |
+| WildFly | v1.0.0-dev.16 | 8079 | Backend Java |
+| Nginx/Vue.js | v1.0.0-dev.3 | 8080 | Frontend |
 
 ---
 
-## 6. Roadmap por Releases
+## 6. Arquitectura de Secrets
+
+### Flujo de Inyección
+
+```
+Repo Git (GitHub)                    Tu máquina local
+─────────────────                    ─────────────────
+values.yaml          →  CHANGE_ME    group_vars/secrets.yml  →  valores reales
+values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
+secrets.yaml         →  templating   run-ansible.sh lee secrets.yml
+                                     ↓
+                                     Genera Application con helm.parameters
+                                     ↓
+                                     ArgoCD recibe secrets reales
+```
+
+### Archivos de Secrets
+
+| Archivo | Propósito | Commiteado |
+|---------|-----------|------------|
+| `group_vars/secrets.yml` | Valores reales de secrets | NO (gitignored) |
+| `values.yaml` | Placeholders CHANGE_ME | SI |
+| `values-dev.yaml` | Placeholders CHANGE_ME | SI |
+| `templates/secrets.yaml` | Template Helm (genera K8s Secret) | SI |
+
+### Secrets Manejados
+
+- JWT_SECRET_KEY
+- GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+- MICROSOFT_CLIENT_ID / MICROSOFT_TENANT_ID
+- MAIL_USERNAME / MAIL_PASSWORD
+- DB_USERNAME / DB_PASSWORD
+- DB_URL (jdbc:postgresql://...)
+- CHECKIT_FRONT_REGISTER_VIEW
+- Frontend Vue.js vars (VUE_APP_API_URL, VUE_APP_GOOGLE_CLIENT_ID, etc.)
+
+---
+
+## 7. Roadmap por Releases
 
 ```text
 v0.1  Bootstrap         ← ESTAMOS AQUÍ
@@ -149,7 +193,7 @@ v1.0  Production Ready
 
 ---
 
-## 7. Golden Path para Desarrolladores
+## 8. Golden Path para Desarrolladores
 
 1. Crear repositorio en `applications/`
 2. Crear Helm chart con la estructura estándar
@@ -162,7 +206,7 @@ v1.0  Production Ready
 
 ---
 
-## 8. Variables Críticas de Seguridad
+## 9. Variables Críticas de Seguridad
 
 NUNCA commitear al repositorio:
 - JWT_SECRET_KEY
@@ -174,19 +218,20 @@ NUNCA commitear al repositorio:
 - API tokens
 - kubeconfig files
 
-Usar: Ansible Vault, Sealed Secrets, o External Secrets Operator.
+Usar: `group_vars/secrets.yml` (gitignored) + Ansible injection via helm.parameters.
 
 ---
 
-## 9. Métricas del Proyecto
+## 10. Métricas del Proyecto
 
 | Métrica | Valor |
 |---------|-------|
-| Archivos totales | ~140 |
+| Archivos totales | ~150 |
 | Documentos de arquitectura | 14 |
 | Ansible roles | 6 |
 | Ansible playbooks | 5 |
-| Helm templates | 14 |
+| Helm templates | 15 |
 | Terraform providers | 3 (Proxmox, DO, AWS) |
 | Inventarios | 5 |
-| Values IUMBIT | 5 (base + 4 ambientes) |
+| Values IUMBIT | 2 (base + dev) |
+| ArgoCD Applications | 4 (app-of-apps, app-of-platform, platform-apps, iumbit) |
