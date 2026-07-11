@@ -1,6 +1,13 @@
 # Enterprise Platform - Loki Values
 loki:
   auth_enabled: false
+  storage:
+    type: filesystem
+  storage_config:
+    filesystem:
+      directory: /loki/storage
+  commonConfig:
+    replication_factor: 1
 
 singleBinary:
   replicas: 1

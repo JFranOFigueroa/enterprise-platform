@@ -2,6 +2,8 @@ global:
   environment: dev
 
 postgresql:
+  auth:
+    postgresPassword: postgres
   primary:
     persistence:
       size: 10Gi
@@ -17,8 +19,27 @@ backend:
 
 frontend:
   replicas: 1
+  vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
+  vueCliTest: "true"
+  vueAppGoogleClientId: "CHANGE_ME"
+  vueAppMicrosoftClientId: "CHANGE_ME"
+  vueAppMicrosoftTenantId: "common"
   hpa:
     enabled: false
+
+secrets:
+  jwtSecretKey: "CHANGE_ME"
+  googleClientId: "CHANGE_ME"
+  googleClientSecret: "CHANGE_ME"
+  microsoftClientId: "CHANGE_ME"
+  microsoftTenantId: "CHANGE_ME"
+  mailUsername: "CHANGE_ME"
+  mailPassword: "CHANGE_ME"
+
+config:
+  serverPort: "8079"
+  dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
+  checkitFrontRegisterView: "http://192.168.0.101:8080/register"
 
 ingress:
   hosts:
@@ -26,3 +47,9 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.16
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8079

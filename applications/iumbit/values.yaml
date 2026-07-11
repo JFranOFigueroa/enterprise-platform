@@ -8,7 +8,7 @@ postgresql:
     repository: postgres
     tag: "18.0-trixie"
   auth:
-    postgresPassword: changeme
+    postgresPassword: postgres
     database: iumbit
   primary:
     persistence:
@@ -27,7 +27,7 @@ backend:
   image:
     repository: nitesoftmx/iumbit-wildfly-app
     tag: "v1.0.0-dev.16"
-  port: 8080
+  port: 8079
   replicas: 1
   resources:
     requests:
@@ -46,6 +46,11 @@ frontend:
     tag: "v1.0.0-dev.3"
   port: 8080
   replicas: 1
+  vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
+  vueCliTest: "true"
+  vueAppGoogleClientId: "CHANGE_ME"
+  vueAppMicrosoftClientId: "CHANGE_ME"
+  vueAppMicrosoftTenantId: "common"
   resources:
     requests:
       cpu: 100m
@@ -55,6 +60,20 @@ frontend:
       memory: 256Mi
   hpa:
     enabled: false
+
+secrets:
+  jwtSecretKey: "CHANGE_ME"
+  googleClientId: "CHANGE_ME"
+  googleClientSecret: "CHANGE_ME"
+  microsoftClientId: "CHANGE_ME"
+  microsoftTenantId: "CHANGE_ME"
+  mailUsername: "CHANGE_ME"
+  mailPassword: "CHANGE_ME"
+
+config:
+  serverPort: "8079"
+  dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
+  checkitFrontRegisterView: "http://192.168.0.101:8080/register"
 
 ingress:
   enabled: true
@@ -66,4 +85,10 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.16
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8079
   tls: []

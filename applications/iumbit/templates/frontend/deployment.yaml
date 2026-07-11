@@ -25,6 +25,11 @@ spec:
             - name: http
               containerPort: {{ .Values.frontend.port }}
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "iumbit.fullname" . }}-config
+            - secretRef:
+                name: {{ include "iumbit.fullname" . }}-secrets
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
           livenessProbe:

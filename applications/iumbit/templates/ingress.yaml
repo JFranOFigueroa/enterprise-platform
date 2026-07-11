@@ -31,9 +31,9 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "iumbit.fullname" $ }}-frontend
+                name: {{ include "iumbit.fullname" $ }}-{{ .serviceName }}
                 port:
-                  number: {{ $.Values.frontend.port }}
+                  number: {{ .servicePort }}
           {{- end }}
     {{- end }}
 {{- end }}

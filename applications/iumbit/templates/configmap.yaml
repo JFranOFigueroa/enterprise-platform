@@ -5,9 +5,14 @@ metadata:
   labels:
     {{- include "iumbit.labels" . | nindent 4 }}
 data:
-  SERVER_PORT: "8080"
+  SERVER_PORT: {{ .Values.config.serverPort | default "8079" | quote }}
   DB_HOST: {{ include "iumbit.fullname" . }}-postgresql
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresql.auth.database | quote }}
-  VUE_APP_API_URL: "/check-it"
-  VUE_CLI_TEST: {{ if eq .Values.global.environment "dev" }}"true"{{ else }}"false"{{ end }}
+  DB_URL: {{ .Values.config.dbUrl | quote }}
+  CHECKIT_FRONT_REGISTER_VIEW: {{ .Values.config.checkitFrontRegisterView | quote }}
+  VUE_APP_API_URL: {{ .Values.frontend.vueAppApiUrl | default "/check-it-1.0.0-dev.16/api/v1/" | quote }}
+  VUE_CLI_TEST: {{ .Values.frontend.vueCliTest | default "true" | quote }}
+  VUE_APP_GOOGLE_CLIENT_ID: {{ .Values.frontend.vueAppGoogleClientId | default "" | quote }}
+  VUE_APP_MICROSOFT_CLIENT_ID: {{ .Values.frontend.vueAppMicrosoftClientId | default "" | quote }}
+  VUE_APP_MICROSOFT_TENANT_ID: {{ .Values.frontend.vueAppMicrosoftTenantId | default "common" | quote }}
