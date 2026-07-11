@@ -113,6 +113,17 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+- name: Wait for cert-manager namespace to exist
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
+  register: cm_ns_check
+  until: cm_ns_check.rc == 0
+  retries: 30
+  delay: 20
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
 - name: Wait for cert-manager webhook to be ready
   ansible.builtin.command:
     cmd: >
