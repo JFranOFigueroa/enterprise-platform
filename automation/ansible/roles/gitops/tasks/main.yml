@@ -139,7 +139,7 @@
   ansible.builtin.command:
     cmd: >
       {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Available deployment/cert-manager-webhook
+      wait --for=condition=Available deployment/platform-cert-manager-webhook
       -n cert-manager --timeout=600s
   register: cm_webhook_wait
   until: cm_webhook_wait.rc == 0
