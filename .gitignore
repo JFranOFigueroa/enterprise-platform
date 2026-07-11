@@ -40,6 +40,8 @@ kube-config*
 # ======================================
 # Ansible
 # ======================================
+**/vault-password*
+**/group_vars/secrets.yml
 automation/ansible/*.retry
 automation/ansible/.vault_password
 **/.vault_password

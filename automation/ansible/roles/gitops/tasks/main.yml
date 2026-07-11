@@ -113,6 +113,30 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+# =============================================================================
+# IUMBIT Application: Deployed directly by Ansible with real secrets
+# iumbit.yaml was removed from bootstrap/gitops/applications/ so app-of-apps
+# doesn't manage it. Ansible generates this Application with helm.parameters
+# that inject real secrets from group_vars/secrets.yml, overriding the
+# CHANGE_ME placeholders in values-dev.yaml from the repo.
+# =============================================================================
+
+- name: Generate patched IUMBIT Application with real secrets
+  ansible.builtin.template:
+    src: iumbit-application.yaml.j2
+    dest: /tmp/iumbit-application.yaml
+    mode: "0600"
+  when: iumbit_secrets is defined
+
+- name: Apply patched IUMBIT Application (overrides app-of-apps version)
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/iumbit-application.yaml"
+  register: iumbit_app_result
+  changed_when: "'created' in iumbit_app_result.stdout or 'configured' in iumbit_app_result.stdout"
+  when: iumbit_secrets is defined
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
 - name: Wait for cert-manager namespace to exist
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
