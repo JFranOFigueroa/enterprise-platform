@@ -124,15 +124,26 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+- name: Wait for cert-manager controller pods to be running
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' | grep -c Running
+  register: cm_running
+  until: cm_running.stdout | int >= 1
+  retries: 30
+  delay: 20
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
 - name: Wait for cert-manager webhook to be ready
   ansible.builtin.command:
     cmd: >
       {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
       wait --for=condition=Available deployment/cert-manager-webhook
-      -n cert-manager --timeout=300s
+      -n cert-manager --timeout=600s
   register: cm_webhook_wait
   until: cm_webhook_wait.rc == 0
-  retries: 15
+  retries: 30
   delay: 20
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
