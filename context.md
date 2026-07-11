@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-07-10
+> Última actualización: 2026-07-11
 
 ---
 
@@ -43,12 +43,18 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 - [x] run-ansible.sh wrapper portable (SSH fix, temp inventory, key copy)
 - [x] SSH keys con paths relativos (portable)
 - [x] ansible_host: host.docker.internal (WSL2 compatible)
+- [x] 3-nodo RKE2 cluster (master-01 + worker-01 + worker-02)
+- [x] ArgoCD desplegado via Helm (NodePort 30080/30443)
+- [x] local-path-provisioner v0.0.36 como default StorageClass
+- [x] cert-manager + ClusterIssuers (selfsigned-issuer Ready)
+- [x] Prometheus + Grafana + kube-state-metrics + node-exporters
+- [x] Loki (singleBinary, filesystem storage) + Promtail (3 pods)
+- [x] IUMBIT backend + frontend + PostgreSQL desplegados y healthy
+- [x] Backend port 8080 (WildFly default, no 8079)
+- [x] Probes: startupProbe (tcpSocket) + liveness/readiness (tcpSocket, sin HTTP dependency)
+- [x] Liquibase schema (30+ tablas) commiteado y pusheado
 
 **Pendiente:**
-- [ ] Ejecutar vagrant up para crear VMs
-- [ ] Ejecutar Ansible bootstrap (RKE2 + ArgoCD)
-- [ ] Desplegar plataforma (ingress, monitoring, cert-manager)
-- [ ] Desplegar IUMBIT en dev
 - [ ] Configurar HPA para IUMBIT
 - [ ] Tests de humo
 - [ ] Runbooks de operación
@@ -116,7 +122,7 @@ IUMBIT es simplemente el **primer cliente** de esta plataforma.
 | Componente | Versión | Puerto | Propósito |
 |------------|---------|--------|-----------|
 | PostgreSQL | 18.0-trixie | 5432 | Base de datos |
-| WildFly | v1.0.0-dev.16 | 8079 | Backend Java |
+| WildFly | v1.0.0-dev.16 | 8080 | Backend Java |
 | Nginx/Vue.js | v1.0.0-dev.3 | 8080 | Frontend |
 
 ---
@@ -162,25 +168,25 @@ secrets.yaml         →  templating   run-ansible.sh lee secrets.yml
 ## 7. Roadmap por Releases
 
 ```text
-v0.1  Bootstrap         ← ESTAMOS AQUÍ
+v0.1  Bootstrap         ← COMPLETADO
   ├── Laboratorio local (Vagrant/VMware)
   ├── Ansible bootstrap (RKE2)
   └── ArgoCD funcional
 
-v0.2  GitOps
+v0.2  GitOps            ← COMPLETADO
   ├── ArgoCD ApplicationSet
   ├── Deploy IUMBIT via GitOps
   └── Values por ambiente
 
-v0.3  Observability
+v0.3  Observability     ← COMPLETADO
   ├── Prometheus + Grafana
   ├── Loki + Promtail
   └── Dashboards de plataforma
 
-v0.4  IUMBIT
+v0.4  IUMBIT            ← EN PROGRESO
   ├── Helm chart completo
-  ├── HPA funcional
   ├── PostgreSQL HA
+  ├── HPA funcional
   └── Tests de humo
 
 v1.0  Production Ready

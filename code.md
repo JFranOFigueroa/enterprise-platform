@@ -1,7 +1,7 @@
 # Enterprise Platform - Code Reference
 
 > Referencia técnica completa de todo el código, configuraciones e infraestructura del proyecto.
-> Última actualización: 2026-07-10
+> Última actualización: 2026-07-11
 
 ---
 
@@ -247,6 +247,8 @@ spec:
 # IUMBIT Dev Secrets - real values injected via helm.parameters
 iumbit_secrets:
   postgresql.auth.postgresPassword: "postgres"
+  secrets.dbUsername: "postgres"
+  secrets.dbPassword: "postgres"
   secrets.jwtSecretKey: "404E6352..."
   secrets.googleClientId: "359418242862-..."
   secrets.googleClientSecret: "GOCSPX-..."
@@ -254,7 +256,7 @@ iumbit_secrets:
   secrets.microsoftTenantId: "261809a4-..."
   secrets.mailUsername: "...@gmail.com"
   secrets.mailPassword: "mbms uehx lxal arbu"
-  config.serverPort: "8079"
+  config.serverPort: "8080"
   config.dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
   config.checkitFrontRegisterView: "http://192.168.0.101:8080/register"
   frontend.vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
@@ -344,7 +346,7 @@ all:
 | Componente | Imagen | Puerto | Replicas | CPU req | Mem req |
 |------------|--------|--------|----------|---------|---------|
 | PostgreSQL | `postgres:18.0-trixie` | 5432 | 1 | 250m | 512Mi |
-| Backend | `nitesoftmx/iumbit-wildfly-app:v1.0.0-dev.16` | 8079 | 1 | 500m | 512Mi |
+| Backend | `nitesoftmx/iumbit-wildfly-app:v1.0.0-dev.16` | 8080 | 1 | 500m | 512Mi |
 | Frontend | `nitesoftmx/iumbit-nginx-web:v1.0.0-dev.3` | 8080 | 1 | 100m | 128Mi |
 
 ### values-dev.yaml (Dev overrides - CHANGE_ME placeholders)
@@ -370,12 +372,36 @@ helm.parameters override CHANGE_ME in values-dev.yaml
 ArgoCD deploys with real secrets
 ```
 
+### Backend Deployment Probes
+
+```yaml
+# WildFly no expone endpoint HTTP de health en /check-it
+# Solución: tcpSocket probes (sin dependencia HTTP)
+startupProbe:
+  tcpSocket:
+    port: http          # 8080
+  failureThreshold: 30  # 300s (~5 min) para WildFly+Spring+Liquibase
+  periodSeconds: 10
+livenessProbe:
+  tcpSocket:
+    port: http
+  periodSeconds: 15
+  failureThreshold: 3
+readinessProbe:
+  tcpSocket:
+    port: http
+  periodSeconds: 10
+  failureThreshold: 3
+```
+
+**Nota:** `startupProbe` evita que liveness/readiness se ejecuten hasta que WildFly empiece a escuchar en 8080. Esto da tiempo suficiente para el arranque completo de WildFly + Spring + Liquibase (30+ tablas).
+
 ### Ingress Routing
 
 | Path | Service | Port | Target |
 |------|---------|------|--------|
 | `/` | iumbit-frontend | 8080 | Vue.js static files |
-| `/check-it-1.0.0-dev.16` | iumbit-backend | 8079 | WildFly API |
+| `/check-it-1.0.0-dev.16` | iumbit-backend | 8080 | WildFly API |
 
 ---
 
@@ -505,6 +531,12 @@ NODES = [
   { name: "ep-worker-01", hostname: "worker-01", ip: "192.168.56.11", cpus: 2, memory: 4096, role: "agent" },
   { name: "ep-worker-02", hostname: "worker-02", ip: "192.168.56.12", cpus: 2, memory: 4096, role: "agent" }
 ]
+
+# Port forwarding (master-01):
+# 30080 → ArgoCD HTTP
+# 30443 → ArgoCD HTTPS
+# 8080  → Ingress HTTP
+# 8443  → Ingress HTTPS
 ```
 
 ### Comandos
@@ -550,7 +582,7 @@ vagrant destroy -f             # Destruir todo
 | 22 | SSH | TCP | Externa |
 | 6443 | Kubernetes API | TCP | Externa |
 | 2379-2380 | etcd | TCP | Interna |
-| 8079 | WildFly/IUMBIT Backend | TCP | Ingress |
+| 8080 | WildFly/IUMBIT Backend | TCP | Ingress |
 | 8080 | Nginx/IUMBIT Frontend | TCP | Ingress |
 | 10250 | Kubelet API | TCP | Interna |
 | 8472 | VXLAN | UDP | Interna |
@@ -579,6 +611,11 @@ kubectl get pods -A
 # Verificar ArgoCD
 kubectl get applications -n gitops
 kubectl get applicationsets -n gitops
+
+# ArgoCD UI (desde Windows)
+# http://localhost:30080
+# Usuario: admin
+# Password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 
 # Verificar IUMBIT
 kubectl get pods -n apps-dev
