@@ -31,19 +31,71 @@ enterprise-platform/
 ├── ADR/                                    # Architecture Decision Records
 ├── applications/                           # Aplicaciones que consumen la plataforma
 │   └── <app-name>/                         # Cada app es autocontenida
-│       ├── app_vars/                       # GITIGNORED - secrets y metadata
-│       │   └── <app-name>.yml
+│       ├── app_vars/                       # GITIGNORED - secrets por ambiente
+│       │   ├── <app>-dev-local.yml
+│       │   ├── <app>-dev.yml
+│       │   ├── <app>-qa.yml
+│       │   ├── <app>-staging.yml
+│       │   └── <app>-production.yml
 │       ├── Chart.yaml
 │       ├── values.yaml
 │       ├── values-dev.yaml
+│       ├── values-qa.yaml
+│       ├── values-staging.yaml
+│       ├── values-production.yaml
 │       └── templates/
 ├── automation/                             # Automatización (Ansible)
+│   └── ansible/
+│       ├── run-ansible.sh                  # Wrapper portable
+│       ├── ansible.cfg
+│       ├── inventory/
+│       │   ├── local-lab/hosts.yml
+│       │   ├── onprem/hosts.yml
+│       │   ├── cloud-digitalocean/
+│       │   └── cloud-aws/
+│       ├── playbooks/
+│       │   ├── site.yml                    # Orquestador maestro (4 fases)
+│       │   ├── 01-bootstrap-host.yml
+│       │   ├── 02-network.yml
+│       │   ├── 03-cluster.yml
+│       │   └── 04-gitops.yml
+│       ├── roles/
+│       │   ├── common/
+│       │   ├── ubuntu/
+│       │   ├── debian/
+│       │   ├── containerd/
+│       │   ├── rke2/
+│       │   └── gitops/
+│       │       ├── tasks/main.yml
+│       │       ├── tasks/deploy-application.yml
+│       │       ├── templates/
+│       │       │   └── application.yaml.j2
+│       │       └── defaults/main.yml
+│       ├── group_vars/
+│       │   └── all.yml
+│       └── host_vars/
 ├── bootstrap/                              # Bootstrap de la plataforma
-├── platform/                               # Servicios compartidos de plataforma
+│   └── gitops/
+│       └── argocd/
+│           ├── app-of-apps.yaml
+│           └── app-of-platform.yaml
+├── platform/                               # Servicios compartidos
+│   ├── certificates/
+│   ├── components/
+│   │   ├── project.yaml
+│   │   └── platform-apps.yaml
+│   ├── gitops/
+│   ├── ingress/
+│   ├── logging/
+│   ├── monitoring/
+│   └── storage/
 ├── infrastructure/                         # Cloud-agnostic infrastructure
-├── docs/                                   # Documentación
-├── tests/                                  # Tests de plataforma
-└── tools/                                  # CLI tools y templates
+│   ├── cloud/
+│   ├── local-lab/
+│   └── onprem/
+├── docs/
+├── tests/
+└── tools/
 ```
 
 ---
@@ -55,7 +107,7 @@ enterprise-platform/
 ```text
 automation/ansible/
 ├── ansible.cfg
-├── run-ansible.sh                          # Wrapper portable
+├── run-ansible.sh
 ├── inventory/
 ├── playbooks/
 │   ├── site.yml
@@ -71,12 +123,12 @@ automation/ansible/
 │   ├── rke2/
 │   └── gitops/
 │       ├── tasks/main.yml
-│       ├── tasks/deploy-application.yml    # Generic app deployment
+│       ├── tasks/deploy-application.yml
 │       ├── templates/
-│       │   └── application.yaml.j2         # Generic ArgoCD App template
+│       │   └── application.yaml.j2
 │       └── defaults/main.yml
 ├── group_vars/
-│   └── all.yml                             # Global vars + applications list
+│   └── all.yml
 └── host_vars/
 ```
 
@@ -86,7 +138,7 @@ El rol gitops ejecuta 4 tareas principales:
 1. **Instala Helm + ArgoCD** via Helm chart
 2. **Clona el repo** a `/opt/enterprise-platform`
 3. **Aplica platform resources**: local-path-provisioner, AppProject, app-of-apps, app-of-platform, ClusterIssuers
-4. **Despliega aplicaciones** de forma genérica desde `applications/<name>/app_vars/<name>.yml`
+4. **Despliega aplicaciones** de forma genérica desde `applications/<name>/app_vars/<name>-<env>.yml`
 
 ### 2.3 application.yaml.j2 (Generic Template)
 
@@ -95,25 +147,28 @@ El rol gitops ejecuta 4 tareas principales:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ app.name }}
+  name: {{ app_config.name }}-{{ target_environment }}
   namespace: gitops
+  labels:
+    app.kubernetes.io/part-of: enterprise-platform
+    environment: {{ target_environment }}
 spec:
   project: enterprise-platform
   source:
     repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
     targetRevision: main
-    path: {{ app.repoPath }}
+    path: {{ app_config.repoPath }}
     helm:
       valueFiles:
-        - {{ app.valuesFile }}
+        - {{ app_config.valuesFile }}
       parameters:
 {% for key, value in app_secrets.items() %}
         - name: "{{ key }}"
           value: "{{ value }}"
 {% endfor %}
   destination:
-    server: https://kubernetes.default.svc
-    namespace: {{ app.namespace }}
+    server: {{ app_config.cluster_server | default('https://kubernetes.default.svc') }}
+    namespace: {{ app_config.namespace }}
   syncPolicy:
     automated:
       prune: true
@@ -129,41 +184,53 @@ spec:
 ### Flujo de Deployment
 
 ```
-group_vars/all.yml (define lista de apps)
+run-ansible.sh (detecta target_environment)
+    ↓
+group_vars/all.yml (define lista de apps + target_environment)
     ↓
 gitops role loop sobre applications
     ↓
-include_vars: applications/<app>/app_vars/<app>.yml
+include_vars: applications/<app>/app_vars/<app>-<target_environment>.yml
     ↓
 template: application.yaml.j2 (genérico)
     ↓
 kubectl apply ArgoCD Application
+    ↓
+ArgoCD sync desde Git → despliega app
 ```
 
 ### Estructura de una Aplicación
 
 ```
 applications/<app-name>/
-├── app_vars/
-│   └── <app-name>.yml      # GITIGNORED - metadata + secrets
+├── app_vars/                       # GITIGNORED - secrets por ambiente
+│   ├── <app>-dev-local.yml
+│   ├── <app>-dev.yml
+│   ├── <app>-qa.yml
+│   ├── <app>-staging.yml
+│   └── <app>-production.yml
 ├── Chart.yaml
-├── values.yaml              # PLACEHOLDERS (CHANGE_ME)
-├── values-dev.yaml          # PLACEHOLDERS (CHANGE_ME)
-├── sql/                     # Opcional: scripts SQL
-└── templates/               # Helm templates
+├── values.yaml                     # PLACEHOLDERS (CHANGE_ME)
+├── values-dev.yaml                 # Overrides por ambiente
+├── values-qa.yaml
+├── values-staging.yaml
+├── values-production.yaml
+├── sql/                            # Opcional: scripts SQL
+└── templates/                      # Helm templates
 ```
 
-### app_vars/<app>.yml
+### app_vars/<app>-<environment>.yml
 
 ```yaml
-app:
+app_config:
   name: mi-app
   namespace: apps-dev
   valuesFile: values-dev.yaml
   repoPath: applications/mi-app
+  cluster_server: https://kubernetes.default.svc  # opcional
 
 app_secrets:
-  postgresql.auth.postgresPassword: "CHANGE_ME"
+  postgresql.auth.postgresPassword: "valor"
   secrets.dbUrl: "jdbc:postgresql://mi-app-postgresql:5432/mi-app"
 ```
 
@@ -172,26 +239,32 @@ app_secrets:
 ## 14. Comandos de Referencia Rápida
 
 ```bash
-# Bootstrap completo (zero-intervention)
-vagrant destroy -f && vagrant up && ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+# === DEV LOCAL ===
+# Bootstrap completo
+vagrant destroy -f && vagrant up && \
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
-# Solo Ansible (si VMs ya existen)
+# Solo Ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
-# Verificar estado del cluster
+# === CLOUD ===
+# QA
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=qa"
+
+# Production
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production"
+
+# === VERIFICACIÓN ===
 kubectl get nodes
 kubectl get pods -A
-
-# Verificar ArgoCD
 kubectl get applications -n gitops
-kubectl get applicationsets -n gitops
-
-# Verificar aplicaciones
 kubectl get pods -n apps-dev
-kubectl get ingress -n apps-dev
+kubectl top pods -n apps-dev
 
-# Verificar plataforma
-kubectl get pods -n cert-manager
-kubectl get pods -n platform-monitoring
-kubectl get pods -n platform-logging
+# === ACCESO ===
+# ArgoCD password
+kubectl -n gitops get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
 ```

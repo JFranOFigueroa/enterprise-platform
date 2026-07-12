@@ -39,13 +39,14 @@ docs/
 3. Review [Platform Architecture](architecture/platform-architecture.md) for the vision
 
 ### For Platform Engineers
-1. [Code Reference](code-reference.md) - Complete technical reference
-2. [Runbooks](runbooks/) - Step-by-step operational procedures
-3. [Architecture](architecture/) - Design decisions and rationale
+1. [Deployment Guide](deployment-guide.md) - Complete deployment instructions
+2. [Code Reference](code-reference.md) - Technical reference
+3. [Runbooks](runbooks/) - Operational procedures
+4. [Architecture](architecture/) - Design decisions
 
 ### For Application Developers
-1. [Environments Architecture](environments-architecture.md) - How to create new environments
-2. [Golden Path](../tools/templates/golden-path-app.md) - How to deploy applications
+1. [Deployment Guide - Application Structure](deployment-guide.md#6-estructura-de-aplicaciones) - How to structure apps
+2. [Environments Architecture](environments-architecture.md) - How environments work
 
 ## Architecture Decision Records
 

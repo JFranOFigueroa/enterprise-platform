@@ -1,5 +1,6 @@
 # Enterprise Platform - ArgoCD Project
 # Single AppProject covering all enterprise apps and platform components.
+# Supports multi-cluster deployments (local + remote clusters).
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -12,9 +13,10 @@ spec:
     - 'https://charts.jetstack.io'
     - 'https://prometheus-community.github.io/helm-charts'
     - 'https://grafana.github.io/helm-charts'
+    - 'https://kubernetes-sigs.github.io/metrics-server/'
   destinations:
     - namespace: '*'
-      server: https://kubernetes.default.svc
+      server: '*'
   clusterResourceWhitelist:
     - group: '*'
       kind: '*'

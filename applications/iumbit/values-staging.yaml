@@ -27,8 +27,16 @@ frontend:
     targetCPUUtilizationPercentage: 80
 
 ingress:
+  enabled: true
+  className: nginx
   hosts:
     - host: iumbit-staging.local
       paths:
         - path: /
           pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.16
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080

@@ -2,7 +2,12 @@
 # Deploys all platform components via ArgoCD using Helm charts from external repos
 # with values from this repository.
 #
-# To add a new platform component, add an entry to the generators.list.elements array.
+# Uses a matrix generator: clusters x components
+# Each registered ArgoCD cluster gets all platform components deployed.
+#
+# To add a new platform component, add an entry to the list generator.
+# To add a new cluster, register it in ArgoCD with the label:
+#   argocd.argoproj.io/secret-type: cluster
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -12,35 +17,47 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - list:
-        elements:
-          - name: cert-manager
-            chart: cert-manager
-            chartVersion: v1.17.1
-            helmRepoURL: https://charts.jetstack.io
-            valuesPath: platform/certificates/cert-manager-values.yaml
-            namespace: cert-manager
-          - name: kube-prometheus-stack
-            chart: kube-prometheus-stack
-            chartVersion: 72.5.1
-            helmRepoURL: https://prometheus-community.github.io/helm-charts
-            valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
-            namespace: platform-monitoring
-          - name: loki
-            chart: loki
-            chartVersion: 6.24.0
-            helmRepoURL: https://grafana.github.io/helm-charts
-            valuesPath: platform/logging/loki-values.yaml
-            namespace: platform-logging
-          - name: promtail
-            chart: promtail
-            chartVersion: 6.16.6
-            helmRepoURL: https://grafana.github.io/helm-charts
-            valuesPath: platform/logging/promtail-values.yaml
-            namespace: platform-logging
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
+          - list:
+              elements:
+                - name: cert-manager
+                  chart: cert-manager
+                  chartVersion: v1.17.1
+                  helmRepoURL: https://charts.jetstack.io
+                  valuesPath: platform/certificates/cert-manager-values.yaml
+                  namespace: cert-manager
+                - name: kube-prometheus-stack
+                  chart: kube-prometheus-stack
+                  chartVersion: 72.5.1
+                  helmRepoURL: https://prometheus-community.github.io/helm-charts
+                  valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
+                  namespace: platform-monitoring
+                - name: loki
+                  chart: loki
+                  chartVersion: 6.24.0
+                  helmRepoURL: https://grafana.github.io/helm-charts
+                  valuesPath: platform/logging/loki-values.yaml
+                  namespace: platform-logging
+                - name: promtail
+                  chart: promtail
+                  chartVersion: 6.16.6
+                  helmRepoURL: https://grafana.github.io/helm-charts
+                  valuesPath: platform/logging/promtail-values.yaml
+                  namespace: platform-logging
+                - name: metrics-server
+                  chart: metrics-server
+                  chartVersion: 3.12.0
+                  helmRepoURL: https://kubernetes-sigs.github.io/metrics-server/
+                  valuesPath: platform/monitoring/metrics-server-values.yaml
+                  namespace: kube-system
   template:
     metadata:
-      name: "platform-{{ .name }}"
+      name: "platform-{{ .name }}-{{ .name }}"
     spec:
       project: enterprise-platform
       sources:
@@ -54,7 +71,7 @@ spec:
           targetRevision: main
           ref: values
       destination:
-        server: https://kubernetes.default.svc
+        server: {{ .server }}
         namespace: "{{ .namespace }}"
       syncPolicy:
         automated:

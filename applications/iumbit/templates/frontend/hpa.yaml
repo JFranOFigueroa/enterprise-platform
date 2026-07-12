@@ -19,4 +19,16 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.frontend.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.frontend.hpa.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.frontend.hpa.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- if .Values.frontend.hpa.behavior }}
+  behavior:
+    {{- toYaml .Values.frontend.hpa.behavior | nindent 4 }}
+  {{- end }}
 {{- end }}

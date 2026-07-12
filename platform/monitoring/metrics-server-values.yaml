@@ -1,0 +1,5 @@
+# metrics-server values for RKE2 compatibility
+# RKE2 uses self-signed kubelet certs, so we need to allow insecure TLS
+args:
+  - --kubelet-insecure-tls
+  - --kubelet-preferred-address-types=InternalIP
