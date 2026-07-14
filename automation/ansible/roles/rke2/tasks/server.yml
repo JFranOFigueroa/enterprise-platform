@@ -8,8 +8,15 @@
     mode: "0755"
 
 - name: Install RKE2 server
-  ansible.builtin.command:
-    cmd: sh /tmp/rke2-install.sh
+  ansible.builtin.shell: |
+    echo "=== RKE2 Server Installation ==="
+    echo "Version: {{ rke2_version }}"
+    echo "Starting download and install..."
+    echo ""
+    stdbuf -oL sh /tmp/rke2-install.sh
+    echo ""
+    echo "=== RKE2 Server Installation Complete ==="
+  args:
     creates: /usr/local/bin/rke2-server
   environment:
     INSTALL_RKE2_TYPE: server
