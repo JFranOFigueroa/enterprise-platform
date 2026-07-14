@@ -105,18 +105,11 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Apply app-of-platform
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-platform.yaml"
-  register: appofplatform_result
-  changed_when: "'created' in appofplatform_result.stdout or 'configured' in appofplatform_result.stdout"
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
 # =============================================================================
-# Cluster Registration
-# Register the local cluster in ArgoCD for the platform-apps ApplicationSet.
-# The clusters generator in platform-apps.yaml requires a Secret with label
+# Cluster Registration (BEFORE app-of-platform)
+# Register the cluster in ArgoCD FIRST so the matrix generator in
+# platform-apps.yaml can find clusters when ApplicationSet is applied.
+# The clusters generator requires a Secret with label
 # argocd.argoproj.io/secret-type: cluster to generate Applications.
 # =============================================================================
 
@@ -128,6 +121,89 @@
   when: argocd_mode == "local"
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cluster Secret to be visible in ArgoCD
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-dev-local -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: cluster_secret_check
+  until: cluster_secret_check.stdout == "cluster-dev-local"
+  retries: 10
+  delay: 5
+  changed_when: false
+  when: argocd_mode == "local"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Apply app-of-platform (AFTER cluster registration)
+# Now the ApplicationSet matrix generator will find the cluster Secret
+# and generate Applications for all platform components.
+# =============================================================================
+
+- name: Apply app-of-platform
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-platform.yaml"
+  register: appofplatform_result
+  changed_when: "'created' in appofplatform_result.stdout or 'configured' in appofplatform_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Diagnostic: Verify ApplicationSet and cluster registration
+# =============================================================================
+
+- name: DEBUG - List ArgoCD Applications
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops -o wide"
+  register: argocd_apps_debug
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: DEBUG - Show ArgoCD Applications
+  ansible.builtin.debug:
+    var: argocd_apps_debug.stdout_lines
+
+- name: DEBUG - List cluster Secrets in ArgoCD
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secrets -n gitops -l argocd.argoproj.io/secret-type=cluster -o wide"
+  register: cluster_secrets_debug
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: DEBUG - Show cluster Secrets
+  ansible.builtin.debug:
+    var: cluster_secrets_debug.stdout_lines
+
+- name: DEBUG - List ApplicationSets
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applicationsets -n gitops -o wide"
+  register: appsets_debug
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: DEBUG - Show ApplicationSets
+  ansible.builtin.debug:
+    var: appsets_debug.stdout_lines
+
+- name: DEBUG - Wait 30s for ApplicationSet controller to process
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: "Waiting for ApplicationSet controller to generate Applications..."
+
+- name: DEBUG - List ArgoCD Applications (after wait)
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops -o wide"
+  register: argocd_apps_after_debug
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: DEBUG - Show ArgoCD Applications (after wait)
+  ansible.builtin.debug:
+    var: argocd_apps_after_debug.stdout_lines
 
 # =============================================================================
 # Wait for Platform Components (cert-manager first)
