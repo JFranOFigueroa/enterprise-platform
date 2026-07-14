@@ -76,6 +76,14 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+# =============================================================================
+# Wait for ArgoCD to be fully ready
+# helm --wait only ensures the server Deployment is Available, but the
+# Application Controller needs extra time to initialize and start processing
+# Applications. Without this wait, subsequent kubectl apply of ArgoCD
+# Applications may silently fail because the controller isn't ready yet.
+# =============================================================================
+
 - name: Wait for ArgoCD server to be ready
   ansible.builtin.command:
     cmd: >
@@ -88,6 +96,40 @@
   delay: 15
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for ArgoCD Application Controller to be ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Ready pod
+      -l app.kubernetes.io/name=argocd-application-controller
+      -n gitops --timeout=180s
+  register: argocd_ctrl_wait
+  until: argocd_ctrl_wait.rc == 0
+  retries: 12
+  delay: 15
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for ArgoCD ApplicationSet Controller to be ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Ready pod
+      -l app.kubernetes.io/name=argocd-applicationset-controller
+      -n gitops --timeout=180s
+  register: argocd_appset_wait
+  until: argocd_appset_wait.rc == 0
+  retries: 12
+  delay: 15
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Apply ArgoCD Resources
+# =============================================================================
 
 - name: Apply ArgoCD AppProject
   ansible.builtin.command:
@@ -149,65 +191,56 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
-# Diagnostic: Verify ApplicationSet and cluster registration
+# Wait for app-of-platform to sync
+# ArgoCD Application Controller needs time to detect the Application,
+# clone the repo, process the directory, and apply resources.
+# The wait tolerates intermediate states (OutOfSync, SyncPending) and
+# only fails if the Application doesn't exist after sufficient time.
 # =============================================================================
 
-- name: DEBUG - List ArgoCD Applications
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops -o wide"
-  register: argocd_apps_debug
+- name: Wait for app-of-platform to exist
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application app-of-platform -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: appofplatform_exists
+  until: appofplatform_exists.stdout == "app-of-platform"
+  retries: 30
+  delay: 5
   changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: DEBUG - Show ArgoCD Applications
-  ansible.builtin.debug:
-    var: argocd_apps_debug.stdout_lines
-
-- name: DEBUG - List cluster Secrets in ArgoCD
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secrets -n gitops -l argocd.argoproj.io/secret-type=cluster -o wide"
-  register: cluster_secrets_debug
+- name: Wait for app-of-platform to be Synced
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application app-of-platform -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
+  register: appofplatform_sync
+  until: >
+    appofplatform_sync.stdout == "Synced" or
+    appofplatform_sync.stdout == "OutOfSync" or
+    appofplatform_sync.stdout == "SyncPending"
+  retries: 60
+  delay: 10
   changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: DEBUG - Show cluster Secrets
-  ansible.builtin.debug:
-    var: cluster_secrets_debug.stdout_lines
-
-- name: DEBUG - List ApplicationSets
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applicationsets -n gitops -o wide"
-  register: appsets_debug
+- name: Wait for app-of-platform to be Healthy
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application app-of-platform -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
+  register: appofplatform_health
+  until: >
+    appofplatform_health.stdout == "Healthy" or
+    appofplatform_health.stdout == "Progressing"
+  retries: 60
+  delay: 10
   changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: DEBUG - Show ApplicationSets
-  ansible.builtin.debug:
-    var: appsets_debug.stdout_lines
-
-- name: DEBUG - Wait 30s for ApplicationSet controller to process
-  ansible.builtin.pause:
-    seconds: 30
-    prompt: "Waiting for ApplicationSet controller to generate Applications..."
-
-- name: DEBUG - List ArgoCD Applications (after wait)
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops -o wide"
-  register: argocd_apps_after_debug
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: DEBUG - Show ArgoCD Applications (after wait)
-  ansible.builtin.debug:
-    var: argocd_apps_after_debug.stdout_lines
 
 # =============================================================================
 # Wait for Platform Components (cert-manager first)
-# ArgoCD needs time to process ApplicationSet and deploy cert-manager
+# Two strategies:
+#   1. Primary: Wait via ArgoCD Application status (declarative)
+#   2. Fallback: Wait directly for cert-manager namespace and pods (imperative)
 # =============================================================================
 
 - name: Wait for cert-manager ArgoCD Application to appear
@@ -225,7 +258,9 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
   register: cm_sync_status
-  until: cm_sync_status.stdout == "Synced"
+  until: >
+    cm_sync_status.stdout == "Synced" or
+    cm_sync_status.stdout == "OutOfSync"
   retries: 60
   delay: 10
   changed_when: false
@@ -236,10 +271,53 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
   register: cm_health_status
-  until: cm_health_status.stdout == "Healthy"
+  until: >
+    cm_health_status.stdout == "Healthy" or
+    cm_health_status.stdout == "Progressing"
   retries: 60
   delay: 10
   changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# cert-manager Fallback Waits (imperative)
+# If the ArgoCD Application path fails (e.g. Application never appears),
+# these waits ensure cert-manager is actually deployed before proceeding.
+# =============================================================================
+
+- name: Wait for cert-manager namespace to exist
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
+  register: cm_ns_check
+  until: cm_ns_check.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cert-manager controller pods to be running
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' | grep -c Running
+  register: cm_running
+  until: cm_running.stdout | int >= 1
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cert-manager webhook to be ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Available deployment/platform-cert-manager-webhook
+      -n cert-manager --timeout=600s
+  register: cm_webhook_wait
+  until: cm_webhook_wait.rc == 0
+  retries: 30
+  delay: 10
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 

@@ -15,10 +15,17 @@
     state: present
   tags: [ubuntu, kernel]
 
+- name: Check if unattended-upgrades service exists
+  ansible.builtin.shell: systemctl list-unit-files | grep -q unattended-upgrades
+  register: unattended_check
+  changed_when: false
+  failed_when: false
+  tags: [ubuntu, services]
+
 - name: Disable unattended upgrades
   ansible.builtin.systemd:
     name: unattended-upgrades
     state: stopped
     enabled: false
-  ignore_errors: true
+  when: unattended_check.rc == 0
   tags: [ubuntu, services]
