@@ -15,6 +15,7 @@ spec:
     targetRevision: main
     path: {{ app_config.repoPath }}
     helm:
+      releaseName: {{ app_config.name }}
       valueFiles:
         - {{ app_config.valuesFile }}
       parameters:

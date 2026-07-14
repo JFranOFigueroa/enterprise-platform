@@ -114,6 +114,60 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
+# Cluster Registration
+# Register the local cluster in ArgoCD for the platform-apps ApplicationSet.
+# The clusters generator in platform-apps.yaml requires a Secret with label
+# argocd.argoproj.io/secret-type: cluster to generate Applications.
+# =============================================================================
+
+- name: Register local cluster in ArgoCD (dev-local mode)
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/cluster-local.yaml"
+  register: cluster_reg_result
+  changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
+  when: argocd_mode == "local"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Wait for Platform Components (cert-manager first)
+# ArgoCD needs time to process ApplicationSet and deploy cert-manager
+# =============================================================================
+
+- name: Wait for cert-manager ArgoCD Application to appear
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: cm_app_check
+  until: cm_app_check.stdout == "platform-cert-manager-cert-manager"
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cert-manager Application to be Synced
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
+  register: cm_sync_status
+  until: cm_sync_status.stdout == "Synced"
+  retries: 60
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for cert-manager Application to be Healthy
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
+  register: cm_health_status
+  until: cm_health_status.stdout == "Healthy"
+  retries: 60
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
 # Application Deployment (Generic)
 # Reads app metadata from applications/<name>/app_vars/<name>.yml
 # Each application is self-contained - no platform-level app-specific config.
@@ -125,41 +179,6 @@
   loop_control:
     loop_var: app_entry
   when: applications is defined and applications | length > 0
-
-- name: Wait for cert-manager namespace to exist
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
-  register: cm_ns_check
-  until: cm_ns_check.rc == 0
-  retries: 30
-  delay: 20
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: Wait for cert-manager controller pods to be running
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' | grep -c Running
-  register: cm_running
-  until: cm_running.stdout | int >= 1
-  retries: 30
-  delay: 20
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: Wait for cert-manager webhook to be ready
-  ansible.builtin.command:
-    cmd: >
-      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Available deployment/platform-cert-manager-webhook
-      -n cert-manager --timeout=600s
-  register: cm_webhook_wait
-  until: cm_webhook_wait.rc == 0
-  retries: 30
-  delay: 20
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 - name: Apply ClusterIssuers
   ansible.builtin.command:

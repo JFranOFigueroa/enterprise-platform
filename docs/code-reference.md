@@ -83,7 +83,8 @@ enterprise-platform/
 │   ├── certificates/
 │   ├── components/
 │   │   ├── project.yaml
-│   │   └── platform-apps.yaml
+│   │   ├── platform-apps.yaml
+│   │   └── cluster-local.yaml              # Cluster registration (dev-local)
 │   ├── gitops/
 │   ├── ingress/
 │   ├── logging/
@@ -159,6 +160,7 @@ spec:
     targetRevision: main
     path: {{ app_config.repoPath }}
     helm:
+      releaseName: {{ app_config.name }}
       valueFiles:
         - {{ app_config.valuesFile }}
       parameters:
@@ -177,6 +179,11 @@ spec:
       - CreateNamespace=true
 ```
 
+**Notas sobre el template:**
+- `releaseName: {{ app_config.name }}` — Asegura nombre de release consistente (evita conflictos de ingress entre ambientes)
+- `cluster_server` — Default a `https://kubernetes.default.svc` para clusters locales; en cloud se especifica la URL del cluster remoto
+- `syncPolicy.automated` — Auto-sync con `prune: true` (elimina recursos obsoletos) y `selfHeal: true` (corrige drift)
+
 ---
 
 ## 5. Application Deployment Model
@@ -184,15 +191,15 @@ spec:
 ### Flujo de Deployment
 
 ```
-run-ansible.sh (detecta target_environment)
+run-ansible.sh (detecta target_environment, inyecta project_root)
     ↓
 group_vars/all.yml (define lista de apps + target_environment)
     ↓
-gitops role loop sobre applications
+gitops role loop sobre applications (loop_var: app_entry)
     ↓
 include_vars: applications/<app>/app_vars/<app>-<target_environment>.yml
     ↓
-template: application.yaml.j2 (genérico)
+template: application.yaml.j2 (releaseName: app_config.name, genérico)
     ↓
 kubectl apply ArgoCD Application
     ↓
@@ -233,6 +240,78 @@ app_secrets:
   postgresql.auth.postgresPassword: "valor"
   secrets.dbUrl: "jdbc:postgresql://mi-app-postgresql:5432/mi-app"
 ```
+
+### Variables de Infraestructura
+
+| Variable | Descripción | Default | Fuente |
+|----------|-------------|---------|--------|
+| `project_root` | Path absoluto al repo | Auto-detectado | `run-ansible.sh` via `--extra-vars` |
+| `repo_clone_dest` | Destino del clone en el server | `/opt/enterprise-platform` | `defaults/main.yml` |
+| `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
+| `argocd_mode` | Modo ArgoCD | `local` | `group_vars/all.yml` |
+
+### Notas sobre el Template
+
+- `releaseName: {{ app_config.name }}` — Evita conflictos de ingress entre ambientes (el Helm release name es consistente)
+- `cluster_server` — Default a `https://kubernetes.default.svc` para clusters locales
+- `syncPolicy.automated` — Auto-sync con `prune: true` y `selfHeal: true`
+- `loop_var: app_entry` — Evita colisión con `include_vars` (el loop variable no puede llamarse `app`)
+
+### 5.1 Cluster Registration
+
+El ApplicationSet `platform-apps.yaml` usa un **matrix generator** (clusters × components) que requiere un Secret de cluster registrado en ArgoCD.
+
+#### Dev-Local Mode
+
+**Archivo:** `platform/components/cluster-local.yaml`
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-dev-local
+  namespace: gitops
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+type: Opaque
+stringData:
+  name: dev-local
+  server: https://kubernetes.default.svc
+```
+
+| Campo | Valor | Descripción |
+|-------|-------|-------------|
+| `name` | `cluster-dev-local` | Nombre del Secret en Kubernetes |
+| `namespace` | `gitops` | Namespace de ArgoCD |
+| `label` | `argocd.argoproj.io/secret-type: cluster` | Label requerido por el clusters generator |
+| `stringData.name` | `dev-local` | Nombre del cluster en ArgoCD (coincide con `target_environment`) |
+| `stringData.server` | `https://kubernetes.default.svc` | API server del cluster local |
+
+**Tarea Ansible:** `automation/ansible/roles/gitops/tasks/main.yml`
+
+```yaml
+- name: Register local cluster in ArgoCD (dev-local mode)
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/cluster-local.yaml"
+  when: argocd_mode == "local"
+```
+
+#### Cloud Mode (Pendiente - Iteración Futura)
+
+Los clusters remotos se auto-registran en el management cluster.
+
+**Variables requeridas:**
+- `cluster_api_server`: URL del API server del cluster remoto (en inventory)
+- `target_environment`: Nombre del ambiente (dev, qa, staging, production)
+
+**Template:** `platform/components/cluster-remote.yaml.j2` (pendiente)
+
+**Flujo:**
+1. Cada cluster ejecuta Ansible con `argocd_mode=managed`
+2. Crea su Secret (cluster-dev, cluster-qa, etc.)
+3. Secret se aplica al management cluster
+4. Management cluster detecta todos los clusters
+5. Matrix: N clusters × 5 componentes = N×5 Applications
 
 ---
 

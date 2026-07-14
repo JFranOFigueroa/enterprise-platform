@@ -66,10 +66,33 @@ enterprise-platform/
 - [x] Runbooks de operación generalizados (day2, troubleshooting, backup-restore, scaling, monitoring)
 - [x] ADR consolidados (0001-0004) en `/ADR/`
 - [x] Documentación reorganizada (`docs/architecture/`, `docs/runbooks/`)
+- [x] **Multi-ambiente:** `target_environment` (dev-local, dev, qa, staging, production)
+- [x] **ArgoCD modes:** `local` (dev-local) vs `managed` (cloud clusters)
+- [x] **app_vars por ambiente:** `app_vars/<app>-dev-local.yml`, `app_vars/<app>-dev.yml`, etc.
+- [x] **Per-environment values files:** `values-dev.yaml`, `values-qa.yaml`, `values-staging.yaml`, `values-production.yaml`
+- [x] **ArgoCD Application template** con `releaseName`, `cluster_server`, `target_environment`
+- [x] **Multi-cluster support:** Matrix generator en platform-apps.yaml (clusters x components)
+- [x] **AppProject:** wildcard destinations (`server: '*'`) para soporte multi-cluster
+- [x] **project_root variable:** Elimina paths relativos frágiles (`../../../../`)
+- [x] **Variable refactoring:** `{{ repo_clone_dest }}` reemplaza hardcoded `/opt/enterprise-platform`
+- [x] **Loop variable fix:** `app_entry` reemplaza `app` (evita colisión con `include_vars`)
+- [x] **Metrics-server:** Agregado como componente de plataforma (compatible RKE2)
+- [x] **HPA templates:** Soporte para `behavior` y `targetMemoryUtilizationPercentage`
+- [x] **IUMBIT deployado:** Backend (WildFly) + Frontend (NGINX) + PostgreSQL en apps-dev
+- [x] **IUMBIT values producidos:** Ingress localhost + iumbit-dev.local, HPA disabled, resources ajustados
+- [x] **Production values:** TLS, behavior HPA, resources altos, replicas=3
+- [x] **Ingress fix:** serviceName/servicePort por path (staging/qa faltaban)
+- [x] **Documentation:** deployment-guide.md, code-reference.md actualizados
 
 **Pendiente:**
 - [ ] Tests de humo
-- [ ] Configurar HPA para primera aplicación
+- [ ] Configurar HPA para primera aplicación (ya listo en templates)
+- [ ] Deploy en QA/Staging/Production (requiere clusters cloud)
+- [ ] **Cloud cluster registration:** Auto-registro de clusters remotos en management ArgoCD
+  - Crear template `platform/components/cluster-remote.yaml.j2`
+  - Agregar variable `cluster_api_server` en inventarios cloud
+  - Definir mecanismo de acceso al management cluster (kubeconfig remoto)
+  - Agregar tareas Ansible para modo `managed`
 
 ---
 
@@ -139,12 +162,30 @@ enterprise-platform/
 
 ## 7. Application Deployment Model
 
+### Flujo de Deployment
+
+```
+run-ansible.sh (detecta target_environment, inyecta project_root)
+    ↓
+group_vars/all.yml (define lista de apps + target_environment default: dev-local)
+    ↓
+gitops role loop sobre applications (loop_var: app_entry)
+    ↓
+include_vars: applications/<app>/app_vars/<app>-<target_environment>.yml
+    ↓
+template: application.yaml.j2 (releaseName: app_config.name, genérico)
+    ↓
+kubectl apply ArgoCD Application
+    ↓
+ArgoCD sync desde Git → despliega app
+```
+
 ### Flujo de Inyección de Secrets
 
 ```
 Repo Git (GitHub)                    Tu máquina local
 ─────────────────                    ─────────────────
-values.yaml          →  CHANGE_ME    applications/<app>/app_vars/<app>.yml  →  valores reales
+values.yaml          →  CHANGE_ME    applications/<app>/app_vars/<app>-<env>.yml  →  valores reales
 values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
                                      ↓
                                      run-ansible.sh lee app_vars
@@ -154,13 +195,22 @@ values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
                                      ArgoCD recibe secrets reales
 ```
 
+### Variables de Infraestructura
+
+| Variable | Descripción | Default | Fuente |
+|----------|-------------|---------|--------|
+| `project_root` | Path absoluto al repo | Auto-detectado | `run-ansible.sh` via `--extra-vars` |
+| `repo_clone_dest` | Destino del clone en el server | `/opt/enterprise-platform` | `defaults/main.yml` |
+| `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
+| `argocd_mode` | Modo ArgoCD | `local` | `group_vars/all.yml` |
+
 ### Archivos de Secrets por Aplicación
 
 | Archivo | Propósito | Commiteado |
 |---------|-----------|------------|
-| `applications/<app>/app_vars/<app>.yml` | Valores reales de secrets | NO (gitignored) |
+| `applications/<app>/app_vars/<app>-<env>.yml` | Valores reales de secrets | NO (gitignored) |
 | `values.yaml` | Placeholders CHANGE_ME | SI |
-| `values-dev.yaml` | Placeholders CHANGE_ME | SI |
+| `values-<env>.yaml` | Overrides por ambiente (CHANGE_ME) | SI |
 | `templates/secrets.yaml` | Template Helm (genera K8s Secret) | SI |
 
 ---
@@ -169,10 +219,11 @@ values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
 
 1. Crear directorio en `applications/<app-name>/`
 2. Crear Helm chart con la estructura estándar
-3. Crear `app_vars/<app-name>.yml` con metadata y secrets
+3. Crear `app_vars/<app-name>-<environment>.yml` por cada ambiente
 4. Agregar app al listado en `group_vars/all.yml`
 5. Hacer `git push`
-6. Ansible + ArgoCD despliega automáticamente
+6. Ejecutar `./run-ansible.sh` con el ambiente correspondiente
+7. ArgoCD despliega automáticamente
 
 **El desarrollador nunca toca kubectl.**
 
@@ -186,20 +237,39 @@ NUNCA commitear al repositorio:
 - SSH private keys
 - kubeconfig files
 - JWT secrets
+- Cloud credentials
 
-Usar: `applications/<app>/app_vars/<app>.yml` (gitignored) + Ansible injection via helm.parameters.
+Usar: `applications/<app>/app_vars/<app>-<env>.yml` (gitignored) + Ansible injection via helm.parameters.
+Nunca commitear `group_vars/secrets.yml` (también gitignored).
 
 ---
 
-## 10. Métricas del Proyecto
+## 10. Documentación del Proyecto
+
+| Documento | Propósito | Ubicación |
+|-----------|-----------|-----------|
+| Deployment Guide | Guía completa de deployment | `docs/deployment-guide.md` |
+| Code Reference | Referencia técnica del código | `docs/code-reference.md` |
+| Environments Architecture | Reglas de gestión de ambientes | `docs/environments-architecture.md` |
+| Platform Constitution | Principios gobernantes | `docs/architecture/platform-constitution.md` |
+| Platform Architecture | Visión de arquitectura | `docs/architecture/platform-architecture.md` |
+| Context | Contexto acumulado del proyecto | `docs/context.md` |
+| Runbooks | Guías operativas (5 documentos) | `docs/runbooks/` |
+
+---
+
+## 11. Métricas del Proyecto
 
 | Métrica | Valor |
 |---------|-------|
 | Documentos de arquitectura | 11 (docs/architecture/) |
+| Documentos de operación | 7 (docs/) + 5 (docs/runbooks/) |
 | ADRs | 4 (ADR/) |
 | Ansible roles | 6 |
 | Ansible playbooks | 5 |
-| Helm templates | 15 |
+| Helm templates (IUMBIT) | 15 |
 | Terraform providers | 4 (Proxmox, DO, AWS, Hetzner) |
 | Inventarios | 5 |
 | Runbooks | 5 |
+| App vars files | 5 (IUMBIT: dev-local, dev, qa, staging, production) |
+| Values files | 5 (IUMBIT: base, dev, qa, staging, production) |

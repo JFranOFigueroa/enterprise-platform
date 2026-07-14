@@ -25,9 +25,9 @@ Cada runbook sigue este formato:
 
 ## Acceso a la Plataforma
 
-### ArgoCD
+### ArgoCD (NodePort)
 ```bash
-# Desde Windows
+# URL
 http://localhost:30080
 
 # Credenciales
@@ -36,25 +36,32 @@ http://localhost:30080
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-### Kubernetes
-```bash
-# Desde WSL (nodo maestro)
-export KUBECONFIG=/etc/rke2/rke2.yaml
-export PATH=$PATH:/var/lib/rke2/bin
+### Servicios de Monitoring (Port-Forward)
 
-# Verificar estado
-kubectl get nodes
-kubectl get pods -A
+> **Nota:** En dev-local, los servicios de plataforma se acceden via port-forward.
+> Es el patrón estándar de Kubernetes para desarrollo local.
+
+```bash
+# Abrir terminales separadas para cada servicio:
+
+# Grafana
+kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n platform-monitoring
+# → http://localhost:3000
+# → Usuario: admin / Password: admin
+
+# Prometheus
+kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n platform-monitoring
+# → http://localhost:9090
+
+# Alertmanager
+kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n platform-monitoring
+# → http://localhost:9093
 ```
 
-### Grafana
+### Acceso a Servicios (usar script helper)
 ```bash
-# Acceso via Ingress
-http://localhost:8080/grafana
-
-# Credenciales default
-# Usuario: admin
-# Password: prom-operator
+# O usar el script helper que inicia todos los port-forwards:
+./tools/cli/platform-access.sh
 ```
 
 ### Loki (Logs)

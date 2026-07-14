@@ -1,0 +1,14 @@
+# Enterprise Platform - Local Cluster Registration
+# Registers the local cluster in ArgoCD for the platform-apps ApplicationSet.
+# Only used in dev-local mode (ArgoCD manages only this cluster).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-dev-local
+  namespace: gitops
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+type: Opaque
+stringData:
+  name: dev-local
+  server: https://kubernetes.default.svc

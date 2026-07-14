@@ -110,11 +110,31 @@ vagrant destroy -f && vagrant up && \
 
 ### Acceso a la plataforma
 
-| Servicio | URL | Credenciales |
-|----------|-----|-------------|
-| ArgoCD UI | http://localhost:30080 | admin / (ver abajo) |
-| IUMBIT Frontend | http://localhost:8080 | - |
-| IUMBIT Backend | http://localhost:8080/check-it-1.0.0-dev.16/ | - |
+| Servicio | URL | Método | Credenciales |
+|----------|-----|--------|-------------|
+| ArgoCD UI | http://localhost:30080 | NodePort | admin / (ver abajo) |
+| Grafana | http://localhost:3000 | Port-Forward | admin / admin |
+| Prometheus | http://localhost:9090 | Port-Forward | Sin auth |
+| Alertmanager | http://localhost:9093 | Port-Forward | Sin auth |
+| IUMBIT Frontend | http://iumbit-dev.local:8080 | Ingress | - |
+| IUMBIT Backend | http://iumbit-dev.local:8080/check-it-1.0.0-dev.16/ | Ingress | - |
+
+**Iniciar servicios de monitoring:**
+```bash
+# Opción 1: Script helper (todos los servicios)
+./tools/cli/platform-access.sh
+
+# Opción 2: Port-forward manual por servicio
+kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n platform-monitoring
+kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n platform-monitoring
+kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n platform-monitoring
+```
+
+**Configurar DNS local para IUMBIT:**
+```bash
+# Agregar a /etc/hosts (Linux/Mac) o C:\Windows\System32\drivers\etc\hosts (Windows)
+192.168.0.101  iumbit-dev.local
+```
 
 **Obtener password de ArgoCD:**
 ```bash
@@ -492,6 +512,37 @@ kubectl get application <app-name> -n gitops -o jsonpath='{.spec.syncPolicy}'
 argocd app sync <app-name>
 ```
 
+### Error: host already defined in ingress (Nginx Admission Webhook)
+
+Este error ocurre cuando hay **dos Ingress resources** reclamando el mismo host+path. Causa común: un Ingress huérfano de una deploy anterior con un nombre de Helm release diferente.
+
+```bash
+# 1. Ver todos los ingress en el namespace
+kubectl get ingress -n <namespace> -o wide
+
+# 2. Eliminar el ingress huérfano (si hay más de uno)
+kubectl delete ingress <orphan-ingress-name> -n <namespace>
+
+# 3. Si la Application de ArgoCD fue creada con un release name viejo,
+#    eliminar la Application y re-ejecutar Ansible
+kubectl delete application <app-name> -n gitops
+
+# 4. Re-ejecutar Ansible
+cd /opt/enterprise-platform && ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+```
+
+**Prevención:** El template `application.yaml.j2` usa `releaseName: {{ app_config.name }}` para asegurar un nombre de Helm release consistente en todos los ambientes.
+
+### ArgoCD CLI no está instalado
+
+El `argocd` CLI no se instala por defecto en los nodos del cluster. Para operaciones que lo requieren, usar `kubectl` directamente:
+
+```bash
+# En lugar de: argocd app sync <app-name>
+kubectl patch application <app-name> -n gitops \
+  --type merge -p '{"spec":{"syncPolicy":{"automated":{}}}}'
+```
+
 ---
 
 ## Comandos de Referencia Rápida
@@ -504,6 +555,10 @@ vagrant destroy -f && vagrant up && \
 
 # Solo Ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Reconstruir desde cero
+vagrant destroy -f && vagrant up && \
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
 # === CLOUD ===
 # QA
@@ -519,10 +574,25 @@ kubectl get nodes
 kubectl get pods -A
 kubectl get applications -n gitops
 kubectl get pods -n apps-dev
+kubectl get ingress -n apps-dev
 kubectl top pods -n apps-dev
 
 # === ACCESO ===
-# ArgoCD
+# ArgoCD password
 kubectl -n gitops get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
+
+# Servicios de plataforma (port-forward)
+kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n platform-monitoring
+kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n platform-monitoring
+
+# IUMBIT Frontend (requiere DNS local configurado)
+# http://iumbit-dev.local:8080
+
+# IUMBIT Backend
+# http://iumbit-dev.local:8080/check-it-1.0.0-dev.16/
 ```
+
+### Nota: ArgoCD CLI
+
+El `argocd` CLI no se instala por defecto en los nodos del cluster. Usar `kubectl` para todas las operaciones de ArgoCD:

@@ -7,6 +7,7 @@
 ```
 docs/
 ├── context.md                          # Project context and current status
+├── deployment-guide.md                 # Complete deployment instructions
 ├── code-reference.md                   # Technical reference for all code
 ├── environments-architecture.md        # Environment management rules
 ├── architecture/                       # Design documents (Phase 1)
