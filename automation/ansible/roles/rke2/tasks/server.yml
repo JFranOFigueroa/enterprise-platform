@@ -13,14 +13,25 @@
     echo "Version: {{ rke2_version }}"
     echo "Starting download and install..."
     echo ""
-    stdbuf -oL sh /tmp/rke2-install.sh
+    sh /tmp/rke2-install.sh
     echo ""
     echo "=== RKE2 Server Installation Complete ==="
   args:
     creates: /usr/local/bin/rke2-server
+  register: rke2_server_install
   environment:
     INSTALL_RKE2_TYPE: server
     INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+
+- name: Show RKE2 server install output
+  ansible.builtin.debug:
+    var: rke2_server_install.stdout_lines
+  when: rke2_server_install is changed
+
+- name: RKE2 server already installed
+  ansible.builtin.debug:
+    msg: "RKE2 server v{{ rke2_version }} already installed, skipping."
+  when: rke2_server_install is not changed
 
 - name: Create RKE2 config directory
   ansible.builtin.file:
