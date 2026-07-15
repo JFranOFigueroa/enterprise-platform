@@ -87,6 +87,7 @@ enterprise-platform/
 - [x] **ApplicationSet retry:** `syncPolicy.retry` con backoff maneja race conditions de CRDs (e.g. ServiceMonitor)
 - [x] **ArgoCD bootstrap waits:** Waits declarativos (Application status) + waits imperativos (namespace, pods, webhook) con reintentos
 - [x] **cert-manager Application fix:** Application name corregido a `platform-dev-local-cert-manager`; webhook deployment name actualizado
+- [x] **Platform Services Ingress:** Grafana, Prometheus, Alertmanager y Loki expuestos via NGINX Ingress (hosts: `*.localhost:8080`)
 
 **Pendiente:**
 - [ ] Tests de humo

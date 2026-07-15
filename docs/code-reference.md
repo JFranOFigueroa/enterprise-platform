@@ -335,6 +335,94 @@ platform-<cluster-name>-<component>
 
 **Retry policy:** El ApplicationSet incluye `syncPolicy.retry` con backoff (5s → 10s → 20s, max 3m, 5 reintentos). Esto maneja race conditions donde un componente (e.g. cert-manager) intenta crear recursos que dependen de CRDs de otro componente (e.g. ServiceMonitor de kube-prometheus-stack) que aún no se ha desplegado.
 
+### 5.2 Platform Services Ingress
+
+Los servicios de plataforma (Grafana, Prometheus, Alertmanager, Loki) se exponen via NGINX Ingress Controller, desplegado como parte del RKE2 cluster.
+
+#### Flujo de Tráfico
+
+```
+Host: grafana.localhost:8080
+  → Vagrant forwarded_port (8080 → 80)
+  → NGINX Ingress Controller (NodePort 80)
+  → Ingress rule: grafana.localhost → Grafana service (ClusterIP)
+  → Grafana pod
+```
+
+#### URLs de Acceso (Dev-Local)
+
+| Servicio | URL | Credenciales |
+|----------|-----|--------------|
+| Grafana | http://grafana.localhost:8080 | admin / admin |
+| Prometheus | http://prometheus.localhost:8080 | - |
+| Alertmanager | http://alertmanager.localhost:8080 | - |
+| Loki | http://loki.localhost:8080 | - |
+| ArgoCD | https://localhost:30443 | Ver comando abajo |
+
+#### Configuración de Ingress
+
+Cada servicio tiene su Ingress configurado en sus respectivos values files:
+
+**`platform/monitoring/kube-prometheus-stack-values.yaml`:**
+```yaml
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.localhost
+    path: /
+    pathType: Prefix
+
+prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.localhost
+    path: /
+    pathType: Prefix
+
+alertmanager:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - alertmanager.localhost
+    path: /
+    pathType: Prefix
+```
+
+**`platform/logging/loki-values.yaml`:**
+```yaml
+singleBinary:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - loki.localhost
+    paths:
+      - /
+```
+
+#### Puerto Host
+
+| Puerto Host | Servicio | Forwarding |
+|-------------|----------|------------|
+| 8080 | NGINX Ingress HTTP | Vagrant: guest 80 → host 8080 |
+| 8443 | NGINX Ingress HTTPS | Vagrant: guest 443 → host 8443 |
+| 30080 | ArgoCD HTTP | Vagrant: guest 30080 → host 30080 |
+| 30443 | ArgoCD HTTPS | Vagrant: guest 30443 → host 30443 |
+
+#### Agregar un Nuevo Servicio
+
+Para exponer un nuevo servicio via Ingress:
+
+1. Agregar bloque `ingress` en el values file del servicio
+2. Definir host (e.g. `mi-servicio.localhost`)
+3. Asegurar que el servicio tiene `ingressClassName: nginx`
+4. Push a Git → ArgoCD sincroniza → Ingress creado automáticamente
+
 ---
 
 ## 14. Comandos de Referencia Rápida
@@ -365,7 +453,20 @@ kubectl get pods -n apps-dev
 kubectl top pods -n apps-dev
 
 # === ACCESO ===
-# ArgoCD password
+# ArgoCD UI
+# https://localhost:30443 (usuario: admin)
 kubectl -n gitops get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
+
+# Grafana UI (admin/admin)
+# http://grafana.localhost:8080
+
+# Prometheus UI
+# http://prometheus.localhost:8080
+
+# Alertmanager UI
+# http://alertmanager.localhost:8080
+
+# Loki API
+# http://loki.localhost:8080
 ```
