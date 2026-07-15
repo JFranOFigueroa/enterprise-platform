@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-07-11
+> Última actualización: 2026-07-14
 
 ---
 
@@ -83,6 +83,10 @@ enterprise-platform/
 - [x] **Production values:** TLS, behavior HPA, resources altos, replicas=3
 - [x] **Ingress fix:** serviceName/servicePort por path (staging/qa faltaban)
 - [x] **Documentation:** deployment-guide.md, code-reference.md actualizados
+- [x] **ApplicationSet naming fix:** List generator usa `component` (no `name`) para evitar colisión con clusters generator; template: `platform-{{ .name }}-{{ .component }}`
+- [x] **ApplicationSet retry:** `syncPolicy.retry` con backoff maneja race conditions de CRDs (e.g. ServiceMonitor)
+- [x] **ArgoCD bootstrap waits:** Waits declarativos (Application status) + waits imperativos (namespace, pods, webhook) con reintentos
+- [x] **cert-manager Application fix:** Application name corregido a `platform-dev-local-cert-manager`; webhook deployment name actualizado
 
 **Pendiente:**
 - [ ] Tests de humo

@@ -1,5 +1,12 @@
 # Enterprise Platform - Prometheus Stack Values
 prometheus:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.localhost
+    path: /
+    pathType: Prefix
   prometheusSpec:
     retention: 15d
     storageSpec:
@@ -16,9 +23,23 @@ grafana:
   persistence:
     enabled: true
     size: 5Gi
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.localhost
+    path: /
+    pathType: Prefix
 
 alertmanager:
   enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - alertmanager.localhost
+    path: /
+    pathType: Prefix
   alertmanagerSpec:
     storage:
       volumeClaimTemplate:

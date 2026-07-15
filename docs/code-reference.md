@@ -1,7 +1,7 @@
 # Enterprise Platform - Code Reference
 
 > Referencia técnica completa de todo el código, configuraciones e infraestructura del proyecto.
-> Última actualización: 2026-07-11
+> Última actualización: 2026-07-14
 
 ---
 
@@ -135,11 +135,12 @@ automation/ansible/
 
 ### 2.2 role: gitops (tasks/main.yml)
 
-El rol gitops ejecuta 4 tareas principales:
+El rol gitops ejecuta 5 tareas principales:
 1. **Instala Helm + ArgoCD** via Helm chart
 2. **Clona el repo** a `/opt/enterprise-platform`
-3. **Aplica platform resources**: local-path-provisioner, AppProject, app-of-apps, app-of-platform, ClusterIssuers
-4. **Despliega aplicaciones** de forma genérica desde `applications/<name>/app_vars/<name>-<env>.yml`
+3. **Aplica platform resources**: local-path-provisioner, AppProject, app-of-apps, cluster registration, app-of-platform
+4. **Espera readiness**: ArgoCD server, Application Controller, ApplicationSet Controller, app-of-platform, cert-manager
+5. **Despliega aplicaciones** de forma genérica desde `applications/<name>/app_vars/<name>-<env>.yml`
 
 ### 2.3 application.yaml.j2 (Generic Template)
 
@@ -312,6 +313,27 @@ Los clusters remotos se auto-registran en el management cluster.
 3. Secret se aplica al management cluster
 4. Management cluster detecta todos los clusters
 5. Matrix: N clusters × 5 componentes = N×5 Applications
+
+#### Convención de Nombres del ApplicationSet
+
+**Archivo:** `platform/components/platform-apps.yaml`
+
+El template genera Applications con el patrón:
+```
+platform-<cluster-name>-<component>
+```
+
+| Cluster | Componente | Application Name |
+|---------|-----------|------------------|
+| dev-local | cert-manager | platform-dev-local-cert-manager |
+| dev-local | kube-prometheus-stack | platform-dev-local-kube-prometheus-stack |
+| dev-local | loki | platform-dev-local-loki |
+| dev-local | promtail | platform-dev-local-promtail |
+| dev-local | metrics-server | platform-dev-local-metrics-server |
+
+**Por qué `component` en lugar de `name`:** El matrix generator fusiona variables de ambos generators. Si ambos usan `name`, el clusters generator sobreescribe el list generator (resuelve a `dev-local` en lugar de `cert-manager`). Renombrar la clave del list generator a `component` evita la colisión.
+
+**Retry policy:** El ApplicationSet incluye `syncPolicy.retry` con backoff (5s → 10s → 20s, max 3m, 5 reintentos). Esto maneja race conditions donde un componente (e.g. cert-manager) intenta crear recursos que dependen de CRDs de otro componente (e.g. ServiceMonitor de kube-prometheus-stack) que aún no se ha desplegado.
 
 ---
 

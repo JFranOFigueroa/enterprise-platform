@@ -11,6 +11,13 @@ loki:
 
 singleBinary:
   replicas: 1
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - loki.localhost
+    paths:
+      - /
 
 monitoring:
   dashboards:
