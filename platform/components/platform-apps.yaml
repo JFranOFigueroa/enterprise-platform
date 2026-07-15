@@ -25,31 +25,31 @@ spec:
                   argocd.argoproj.io/secret-type: cluster
           - list:
               elements:
-                - name: cert-manager
+                - component: cert-manager
                   chart: cert-manager
                   chartVersion: v1.17.1
                   helmRepoURL: https://charts.jetstack.io
                   valuesPath: platform/certificates/cert-manager-values.yaml
                   namespace: cert-manager
-                - name: kube-prometheus-stack
+                - component: kube-prometheus-stack
                   chart: kube-prometheus-stack
                   chartVersion: 72.5.1
                   helmRepoURL: https://prometheus-community.github.io/helm-charts
                   valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
                   namespace: platform-monitoring
-                - name: loki
+                - component: loki
                   chart: loki
                   chartVersion: 6.24.0
                   helmRepoURL: https://grafana.github.io/helm-charts
                   valuesPath: platform/logging/loki-values.yaml
                   namespace: platform-logging
-                - name: promtail
+                - component: promtail
                   chart: promtail
                   chartVersion: 6.16.6
                   helmRepoURL: https://grafana.github.io/helm-charts
                   valuesPath: platform/logging/promtail-values.yaml
                   namespace: platform-logging
-                - name: metrics-server
+                - component: metrics-server
                   chart: metrics-server
                   chartVersion: 3.12.0
                   helmRepoURL: https://kubernetes-sigs.github.io/metrics-server/
@@ -57,7 +57,7 @@ spec:
                   namespace: kube-system
   template:
     metadata:
-      name: "platform-{{ .name }}-{{ .name }}"
+      name: "platform-{{ .name }}-{{ .component }}"
     spec:
       project: enterprise-platform
       sources:
@@ -77,6 +77,12 @@ spec:
         automated:
           prune: true
           selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true

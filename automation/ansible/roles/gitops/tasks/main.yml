@@ -246,9 +246,9 @@
 
 - name: Wait for cert-manager ArgoCD Application to appear
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cm_app_check
-  until: cm_app_check.stdout == "platform-cert-manager-cert-manager"
+  until: cm_app_check.stdout == "platform-dev-local-cert-manager"
   retries: 30
   delay: 10
   changed_when: false
@@ -257,7 +257,7 @@
 
 - name: Wait for cert-manager Application to be Synced
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
   register: cm_sync_status
   until: >
     cm_sync_status.stdout == "Synced" or
@@ -270,7 +270,7 @@
 
 - name: Wait for cert-manager Application to be Healthy
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-cert-manager-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
   register: cm_health_status
   until: >
     cm_health_status.stdout == "Healthy" or
@@ -313,7 +313,7 @@
   ansible.builtin.command:
     cmd: >
       {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Available deployment/platform-cert-manager-webhook
+      wait --for=condition=Available deployment/platform-dev-local-cert-manager-webhook
       -n cert-manager --timeout=600s
   register: cm_webhook_wait
   until: cm_webhook_wait.rc == 0
