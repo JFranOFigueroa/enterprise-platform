@@ -229,7 +229,8 @@
   register: appofplatform_health
   until: >
     appofplatform_health.stdout == "Healthy" or
-    appofplatform_health.stdout == "Progressing"
+    appofplatform_health.stdout == "Progressing" or
+    appofplatform_health.stdout == "Degraded"
   retries: 60
   delay: 10
   changed_when: false
