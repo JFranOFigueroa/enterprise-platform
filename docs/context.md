@@ -56,7 +56,7 @@ enterprise-platform/
 - [x] .gitignore comprehensivo (excluye secrets, app_vars/, kubeconfig, .env)
 - [x] run-ansible.sh wrapper portable (SSH fix, temp inventory, key copy)
 - [x] SSH keys con paths relativos (portable)
-- [x] ansible_host: 192.168.2.5 (WSL2 compatible)
+- [x] ansible_host: 192.168.100.21 (WSL2 compatible)
 - [x] 3-nodo RKE2 cluster (master-01 + worker-01 + worker-02)
 - [x] ArgoCD desplegado via Helm (NodePort 30080/30443)
 - [x] local-path-provisioner v0.0.36 como default StorageClass
