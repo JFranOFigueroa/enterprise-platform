@@ -65,7 +65,7 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
-    - host: helping-insider-beach-daughters.trycloudflare.com
+    - host: attribute-inch-had-appropriate.trycloudflare.com 
       paths:
         - path: /
           pathType: Prefix

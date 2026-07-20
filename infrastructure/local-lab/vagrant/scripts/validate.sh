@@ -13,8 +13,8 @@ echo ""
 echo "SSH Connectivity:"
 for port in 2222 2200 2201; do
   host="127.0.0.1"
-  if command -v host.docker.internal &>/dev/null; then
-    host="host.docker.internal"
+  if command -v 192.168.2.5 &>/dev/null; then
+    host="192.168.2.5"
   fi
   if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p "$port" vagrant@"$host" "hostname" 2>/dev/null; then
     echo "  Port $port: OK"
