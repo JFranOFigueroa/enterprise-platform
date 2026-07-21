@@ -149,7 +149,20 @@ else
 fi
 
 # Fix SSH keys and rewrite inventory if on WSL + /mnt/c/
-if needs_ssh_fix; then
+# Skip SSH fix if inventory uses ansible_connection: local (no SSH needed)
+INVENTORY_IS_LOCAL=false
+if [[ -n "$INVENTORY_FILE" ]]; then
+    _check_path="$INVENTORY_FILE"
+    if [[ ! "$_check_path" = /* ]]; then
+        _check_path="${SCRIPT_DIR}/${_check_path}"
+    fi
+    if [[ -f "$_check_path" ]] && grep -q 'ansible_connection: local' "$_check_path" 2>/dev/null; then
+        INVENTORY_IS_LOCAL=true
+        echo "[run-ansible.sh] Local connection detected, skipping SSH key fix"
+    fi
+fi
+
+if needs_ssh_fix && [[ "$INVENTORY_IS_LOCAL" != "true" ]]; then
     fix_ssh_keys
 
     if [[ -n "$INVENTORY_FILE" ]]; then

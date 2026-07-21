@@ -61,16 +61,29 @@
     name: git
     state: present
 
-- name: Clone enterprise-platform repository
+- name: Use local repository (if available)
+  ansible.builtin.set_fact:
+    repo_dest: "{{ project_root }}"
+  when: >-
+    project_root is defined and project_root | length > 0 and
+    (project_root + '/platform/storage/local-path-provisioner.yaml') is file
+
+- name: Clone enterprise-platform repository (fallback)
   ansible.builtin.git:
     repo: https://github.com/JFranOFigueroa/enterprise-platform.git
     dest: "{{ repo_clone_dest }}"
     version: main
     force: true
+  when: repo_dest is not defined or repo_dest | length == 0
+
+- name: Set repository destination (fallback)
+  ansible.builtin.set_fact:
+    repo_dest: "{{ repo_clone_dest }}"
+  when: repo_dest is not defined or repo_dest | length == 0
 
 - name: Apply local-path-provisioner
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/storage/local-path-provisioner.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/storage/local-path-provisioner.yaml"
   register: lpp_result
   changed_when: "'created' in lpp_result.stdout or 'configured' in lpp_result.stdout"
   environment:
@@ -133,7 +146,7 @@
 
 - name: Apply ArgoCD AppProject
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/project.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/components/project.yaml"
   register: project_result
   changed_when: "'created' in project_result.stdout or 'configured' in project_result.stdout"
   environment:
@@ -141,7 +154,7 @@
 
 - name: Apply app-of-apps
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-apps.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/bootstrap/gitops/argocd/app-of-apps.yaml"
   register: appofapps_result
   changed_when: "'created' in appofapps_result.stdout or 'configured' in appofapps_result.stdout"
   environment:
@@ -157,7 +170,7 @@
 
 - name: Register local cluster in ArgoCD (dev-local mode)
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/cluster-local.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/components/cluster-local.yaml"
   register: cluster_reg_result
   changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
   when: argocd_mode == "local" and target_environment == "dev-local"
@@ -166,7 +179,7 @@
 
 - name: Register cluster in ArgoCD (non-dev-local local mode)
   ansible.builtin.template:
-    src: "{{ repo_clone_dest }}/platform/components/cluster-template.yaml.j2"
+    src: "{{ repo_dest }}/platform/components/cluster-template.yaml.j2"
     dest: "/tmp/cluster-{{ target_environment }}-registration.yaml"
     mode: "0600"
   register: cluster_template_render
@@ -201,7 +214,7 @@
 
 - name: Apply app-of-platform
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/bootstrap/gitops/argocd/app-of-platform.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/bootstrap/gitops/argocd/app-of-platform.yaml"
   register: appofplatform_result
   changed_when: "'created' in appofplatform_result.stdout or 'configured' in appofplatform_result.stdout"
   environment:
@@ -354,7 +367,7 @@
 
 - name: Apply ClusterIssuers
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/certificates/clusterissuers.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/certificates/clusterissuers.yaml"
   register: issuers_result
   changed_when: "'created' in issuers_result.stdout or 'configured' in issuers_result.stdout"
   environment:
