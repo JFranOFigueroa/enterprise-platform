@@ -1,0 +1,53 @@
+---
+# Enterprise Platform - On-Premise Inventory (Multi-Node)
+# Environment:   onprem (multi-node)
+# Provisioner:   Existing VPS / Physical servers
+# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml --workers
+#
+# This inventory includes worker nodes for multi-node clusters.
+# Default is single-node (hosts.yml). Use --workers flag to activate this inventory.
+#
+# Variables from group_vars/secrets.yml (required):
+#   onprem_user              - SSH user (e.g., ansible)
+#   onprem_master_host       - Master SSH hostname/IP
+#   onprem_master_node_ip    - Master internal IP for RKE2
+#   onprem_private_key       - Path to SSH private key
+#   onprem_worker_01_host    - Worker 01 SSH hostname/IP
+#   onprem_worker_01_node_ip - Worker 01 internal IP for RKE2
+#   onprem_worker_02_host    - Worker 02 SSH hostname/IP (optional)
+#   onprem_worker_02_node_ip - Worker 02 internal IP for RKE2 (optional)
+
+all:
+  children:
+    rke2_servers:
+      hosts:
+        master-01:
+          ansible_host: "{{ onprem_master_host }}"
+          ansible_port: 22
+          ansible_user: "{{ onprem_user }}"
+          ansible_ssh_private_key_file: "{{ onprem_private_key }}"
+          node_ip: "{{ onprem_master_node_ip }}"
+      vars:
+        rke2_type: server
+        node_role: control-plane
+
+    rke2_agents:
+      hosts:
+        worker-01:
+          ansible_host: "{{ onprem_worker_01_host }}"
+          ansible_port: 22
+          ansible_user: "{{ onprem_user }}"
+          ansible_ssh_private_key_file: "{{ onprem_private_key }}"
+          node_ip: "{{ onprem_worker_01_node_ip }}"
+      vars:
+        rke2_type: agent
+        node_role: worker
+
+    rke2_cluster:
+      children:
+        rke2_servers:
+        rke2_agents:
+
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo

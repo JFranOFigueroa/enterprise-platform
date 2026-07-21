@@ -10,12 +10,13 @@
 1. [Arquitectura de Deployment](#1-arquitectura-de-deployment)
 2. [Prerrequisitos](#2-prerrequisitos)
 3. [Despliegue Local (dev-local)](#3-despliegue-local-dev-local)
-4. [Despliegue en la Nube (cloud)](#4-despliegue-en-la-nube-cloud)
-5. [Variables y Argumentos](#5-variables-y-argumentos)
-6. [Estructura de Aplicaciones](#6-estructura-de-aplicaciones)
-7. [Agregar una Nueva Aplicación](#7-agregar-una-nueva-aplicación)
-8. [Verificación Post-Deployment](#8-verificación-post-deployment)
-9. [Troubleshooting](#9-troubleshooting)
+4. [Despliegue On-Premise (production)](#4-despliegue-on-premise-production)
+5. [Despliegue en la Nube (cloud)](#5-despliegue-en-la-nube-cloud)
+6. [Variables y Argumentos](#6-variables-y-argumentos)
+7. [Estructura de Aplicaciones](#7-estructura-de-aplicaciones)
+8. [Agregar una Nueva Aplicación](#8-agregar-una-nueva-aplicación)
+9. [Verificación Post-Deployment](#9-verificación-post-deployment)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -71,6 +72,13 @@
 - Acceso SSH al master node
 - Ansible configurado con el inventory correspondiente
 - ArgoCD ya corriendo en el management cluster
+
+### Para On-Premise (production)
+
+- Servidor con Ubuntu 24.04 LTS (mínimo 4 CPU, 6GB RAM para master)
+- Acceso SSH con sudo al servidor
+- Ansible instalado en la máquina local (o en el mismo servidor para localhost)
+- Repo clonado en la máquina local o en el servidor
 
 ---
 
@@ -171,7 +179,87 @@ kubectl -n gitops get secret argocd-initial-admin-secret \
 
 ---
 
-## 4. Despliegue en la Nube (cloud)
+## 4. Despliegue On-Premise (production)
+
+### Opción A: Servidor Remoto (SSH)
+
+```bash
+# 1. Clonar repo en máquina local
+git clone https://github.com/JFranOFigueroa/enterprise-platform.git
+cd enterprise-platform
+
+# 2. Configurar credenciales
+cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+# Editar secrets.yml con tus valores:
+#   onprem_user, onprem_master_host, onprem_master_node_ip, onprem_private_key
+
+# 3. Ejecutar (single-node, default)
+./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production"
+
+# 3b. O con workers
+# Editar secrets.yml: descomentar y configurar onprem_worker_01_host, etc.
+./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production" --workers
+```
+
+### Opción B: Localhost (mismo servidor)
+
+```bash
+# 1. En el servidor de producción
+git clone https://github.com/JFranOFigueroa/enterprise-platform.git
+cd enterprise-platform
+
+# 2. Instalar Ansible
+apt-get update && apt-get install -y ansible
+
+# 3. Configurar credenciales (solo node_ip)
+cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+# Editar secrets.yml: solo onprem_master_node_ip
+
+# 4. Ejecutar contra localhost
+./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml \
+  --extra-vars "target_environment=production"
+```
+
+**Resultado esperado:**
+- RKE2 cluster funcionando en el servidor
+- ArgoCD desplegado en namespace `gitops` (gestiona solo este cluster)
+- IUMBIT desplegado en namespace `apps-production` con:
+  - HPA habilitado (backend: min:2, max:10; frontend: min:2, max:20)
+  - 3 replicas por defecto para backend y frontend
+  - Resources de producción (1-2 CPU, 1-4GB RAM)
+  - PostgreSQL con 50Gi storage
+  - TLS vía Let's Encrypt (requiere DNS configurado)
+- Platform components (cert-manager, monitoring, logging) desplegados
+
+### Variables de On-Premise
+
+Las credenciales se configuran en `group_vars/secrets.yml` (gitignored):
+
+| Variable | Descripción | Requerido | Ejemplo |
+|----------|-------------|-----------|---------|
+| `onprem_user` | SSH user | Sí (hosts.yml, hosts-workers.yml) | `ansible` |
+| `onprem_master_host` | Master SSH hostname/IP | Sí (hosts.yml, hosts-workers.yml) | `192.168.1.100` |
+| `onprem_master_node_ip` | Master internal IP | Sí | `192.168.1.100` |
+| `onprem_private_key` | SSH private key path | Sí (hosts.yml, hosts-workers.yml) | `~/.ssh/id_ed25519` |
+| `onprem_worker_01_host` | Worker 01 SSH host | Solo con `--workers` | `192.168.1.101` |
+| `onprem_worker_01_node_ip` | Worker 01 internal IP | Solo con `--workers` | `192.168.1.101` |
+
+### Diferencias con dev-local
+
+| Aspecto | dev-local | production (onprem) |
+|---------|-----------|---------------------|
+| HPA | Deshabilitado | Habilitado (CPU 70% + Mem 80%) |
+| Replicas | 1 | 3 |
+| Resources backend | 250m-500m / 256Mi-512Mi | 1-2 cores / 1Gi-2Gi |
+| PostgreSQL storage | 10Gi | 50Gi |
+| TLS | Self-signed | Let's Encrypt production |
+| Ingress host | localhost, iumbit-dev.local | iumbit.example.com |
+
+---
+
+## 5. Despliegue en la Nube (cloud)
 
 ### Paso 1: Provisionar el cluster
 
@@ -221,7 +309,7 @@ kubectl get pods -A
 
 ---
 
-## 5. Variables y Argumentos
+## 6. Variables y Argumentos
 
 ### Argumentos de run-ansible.sh
 
@@ -253,7 +341,7 @@ kubectl get pods -A
 
 ---
 
-## 6. Estructura de Aplicaciones
+## 7. Estructura de Aplicaciones
 
 ### Estructura esperada bajo `applications/`
 
@@ -338,7 +426,7 @@ app_secrets:
 
 ---
 
-## 7. Agregar una Nueva Aplicación
+## 8. Agregar una Nueva Aplicación
 
 ### Paso 1: Crear directorio y Helm chart
 
@@ -421,7 +509,7 @@ kubectl get applications -n gitops
 
 ---
 
-## 8. Verificación Post-Deployment
+## 9. Verificación Post-Deployment
 
 ### Verificar cluster
 
@@ -487,7 +575,7 @@ kubectl describe hpa -n apps-dev
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ### ArgoCD Application en estado "Error"
 
@@ -599,6 +687,23 @@ vagrant destroy -f && EP_WORKERS=true vagrant up && \
 
 # Production
 ./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production"
+
+# === ON-PREMISE (Production) ===
+# Configurar credenciales primero
+cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+# Editar secrets.yml con valores reales
+
+# Single-node (default)
+./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production"
+
+# Multi-node (con workers)
+./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+  --extra-vars "target_environment=production" --workers
+
+# Localhost (repo en el mismo servidor)
+./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml \
   --extra-vars "target_environment=production"
 
 # === VERIFICACIÓN ===

@@ -160,15 +160,32 @@
     cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/cluster-local.yaml"
   register: cluster_reg_result
   changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
-  when: argocd_mode == "local"
+  when: argocd_mode == "local" and target_environment == "dev-local"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Register cluster in ArgoCD (non-dev-local local mode)
+  ansible.builtin.template:
+    src: "{{ repo_clone_dest }}/platform/components/cluster-template.yaml.j2"
+    dest: "/tmp/cluster-{{ target_environment }}-registration.yaml"
+    mode: "0600"
+  register: cluster_template_render
+  when: argocd_mode == "local" and target_environment != "dev-local"
+
+- name: Apply cluster registration template
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/cluster-{{ target_environment }}-registration.yaml"
+  register: cluster_reg_result
+  changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
+  when: argocd_mode == "local" and target_environment != "dev-local"
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 - name: Wait for cluster Secret to be visible in ArgoCD
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-dev-local -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-{{ target_environment }} -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cluster_secret_check
-  until: cluster_secret_check.stdout == "cluster-dev-local"
+  until: cluster_secret_check.stdout == "cluster-{{ target_environment }}"
   retries: 10
   delay: 5
   changed_when: false
@@ -246,9 +263,9 @@
 
 - name: Wait for cert-manager ArgoCD Application to appear
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cm_app_check
-  until: cm_app_check.stdout == "platform-dev-local-cert-manager"
+  until: cm_app_check.stdout == "platform-{{ target_environment }}-cert-manager"
   retries: 30
   delay: 10
   changed_when: false
@@ -257,7 +274,7 @@
 
 - name: Wait for cert-manager Application to be Synced
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
   register: cm_sync_status
   until: >
     cm_sync_status.stdout == "Synced" or
@@ -270,7 +287,7 @@
 
 - name: Wait for cert-manager Application to be Healthy
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-dev-local-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
   register: cm_health_status
   until: >
     cm_health_status.stdout == "Healthy" or
@@ -313,7 +330,7 @@
   ansible.builtin.command:
     cmd: >
       {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Available deployment/platform-dev-local-cert-manager-webhook
+      wait --for=condition=Available deployment/platform-{{ target_environment }}-cert-manager-webhook
       -n cert-manager --timeout=600s
   register: cm_webhook_wait
   until: cm_webhook_wait.rc == 0

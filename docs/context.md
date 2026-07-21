@@ -90,6 +90,11 @@ enterprise-platform/
 - [x] **Platform Services Ingress:** Grafana, Prometheus, Alertmanager y Loki expuestos via NGINX Ingress (hosts: `*.localhost:8080`)
 - [x] **Optional Workers:** Default single-node (master-01 only), workers optional via `--workers` flag and `EP_WORKERS=true`
 - [x] **Dual Inventory:** `hosts.yml` (single-node) + `hosts-multi.yml` (multi-node) for local-lab
+- [x] **On-Prem Production Inventory:** `onprem/hosts.yml` (single-node), `onprem/hosts-workers.yml` (multi-node), `onprem/hosts-local.yml` (localhost)
+- [x] **On-Prem Credentials Model:** Variables en `group_vars/secrets.yml` (gitignored) con `secrets.yml.example` como template
+- [x] **Cert-manager waits generalizados:** `platform-{{ target_environment }}-cert-manager` reemplaza hardcodeado `dev-local`
+- [x] **Cluster registration dinámico:** `cluster-template.yaml.j2` renderiza `cluster-{{ target_environment }}` para ambientes no-dev-local
+- [x] **On-Prem deployment guide:** Sección completa en `docs/deployment-guide.md` con 3 modos (SSH, workers, localhost)
 
 **Pendiente:**
 - [ ] Tests de humo

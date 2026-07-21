@@ -48,6 +48,20 @@ common_packages:
   - ufw
 
 # ======================================
+# On-Premise Configuration
+# ======================================
+# These variables are required for onprem inventories (hosts.yml, hosts-workers.yml).
+# For hosts-local.yml (localhost mode), only onprem_master_node_ip is needed.
+# Set these in group_vars/secrets.yml (gitignored). See secrets.yml.example.
+#
+# onprem_user: ansible
+# onprem_master_host: "192.168.1.100"
+# onprem_master_node_ip: "192.168.1.100"
+# onprem_private_key: "~/.ssh/enterprise-platform"
+# onprem_worker_01_host: "192.168.1.101"
+# onprem_worker_01_node_ip: "192.168.1.101"
+
+# ======================================
 # Applications to deploy
 # ======================================
 # Each app must have: applications/<name>/app_vars/<name>-<environment>.yml

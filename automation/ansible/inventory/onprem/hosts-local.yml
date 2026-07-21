@@ -1,0 +1,33 @@
+---
+# Enterprise Platform - On-Premise Inventory (Localhost)
+# Environment:   onprem (localhost)
+# Provisioner:   Same server (repo cloned on the target server)
+# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml
+#
+# Use this inventory when the repo is cloned directly on the target server
+# and Ansible runs locally (no SSH). Requires ansible_connection=local.
+#
+# Only onprem_master_node_ip is required in secrets.yml for this mode.
+#
+# Variables from group_vars/secrets.yml:
+#   onprem_master_node_ip  (required) - Internal IP of the master node
+
+all:
+  children:
+    rke2_servers:
+      hosts:
+        master-01:
+          ansible_host: 127.0.0.1
+          ansible_connection: local
+          node_ip: "{{ onprem_master_node_ip }}"
+      vars:
+        rke2_type: server
+        node_role: control-plane
+
+    rke2_cluster:
+      children:
+        rke2_servers:
+
+  vars:
+    ansible_become: true
+    ansible_become_method: sudo
