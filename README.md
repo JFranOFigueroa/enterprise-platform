@@ -10,16 +10,31 @@ Build a platform capable of running enterprise applications with high availabili
 
 ## Quick Start
 
-### Local Lab (Development)
+### Local Lab (Development) — Single Node
 
 ```bash
-# 1. Create VMs
+# 1. Create VM (master-01 only)
 cd infrastructure/local-lab/vagrant
 vagrant up
 
 # 2. Bootstrap platform
 cd automation/ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# 3. Access ArgoCD UI
+# http://localhost:30080
+```
+
+### Local Lab — Multi-Node (Optional Workers)
+
+```bash
+# 1. Create VMs (master-01 + worker-01 + worker-02)
+cd infrastructure/local-lab/vagrant
+EP_WORKERS=true vagrant up
+
+# 2. Bootstrap platform
+cd automation/ansible
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
 
 # 3. Access ArgoCD UI
 # http://localhost:30080

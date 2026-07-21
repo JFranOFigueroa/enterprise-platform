@@ -6,7 +6,12 @@
 #
 # Usage:
 #   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+#   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
 #   ./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml
+#
+# Options:
+#   --workers    Use multi-node inventory (master + worker-01 + worker-02)
+#                Default: single-node (master-01 only)
 #
 # Why this exists:
 #   WSL mounts /mnt/c/ with world-writable permissions (777).
@@ -102,13 +107,18 @@ create_fixed_inventory() {
 INVENTORY_FILE=""
 EXTRA_ARGS=()
 TARGET_ENV=""
+USE_WORKERS=false
 
-# Parse arguments to find -i inventory path and --extra-vars
+# Parse arguments to find -i inventory path, --extra-vars, and --workers
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -i|--inventory|--inventory-file)
             INVENTORY_FILE="$2"
             shift 2
+            ;;
+        --workers)
+            USE_WORKERS=true
+            shift
             ;;
         *)
             EXTRA_ARGS+=("$1")
@@ -116,6 +126,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# For local-lab: swap inventory if --workers is specified
+if [[ "$USE_WORKERS" == "true" ]] && [[ "$INVENTORY_FILE" == *"local-lab/hosts.yml"* ]]; then
+    INVENTORY_FILE="${INVENTORY_FILE/hosts.yml/hosts-multi.yml}"
+    echo "[run-ansible.sh] Multi-node mode: using hosts-multi.yml"
+fi
 
 # Detect target_environment from extra-vars (default: dev-local)
 for arg in "${EXTRA_ARGS[@]}"; do
@@ -126,6 +142,11 @@ done
 TARGET_ENV="${TARGET_ENV:-dev-local}"
 
 echo "[run-ansible.sh] Target environment: ${TARGET_ENV}"
+if [[ "$USE_WORKERS" == "true" ]]; then
+    echo "[run-ansible.sh] Cluster mode: multi-node (master + workers)"
+else
+    echo "[run-ansible.sh] Cluster mode: single-node (master only)"
+fi
 
 # Fix SSH keys and rewrite inventory if on WSL + /mnt/c/
 if needs_ssh_fix; then

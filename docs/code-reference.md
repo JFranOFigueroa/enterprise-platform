@@ -49,7 +49,9 @@ enterprise-platform/
 │       ├── run-ansible.sh                  # Wrapper portable
 │       ├── ansible.cfg
 │       ├── inventory/
-│       │   ├── local-lab/hosts.yml
+│       │   ├── local-lab/
+│       │   │   ├── hosts.yml              # Single-node (default)
+│       │   │   └── hosts-multi.yml        # Multi-node (--workers)
 │       │   ├── onprem/hosts.yml
 │       │   ├── cloud-digitalocean/
 │       │   └── cloud-aws/

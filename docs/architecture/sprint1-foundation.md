@@ -8,7 +8,7 @@
 
 ## Deliverables
 
-1. Vagrantfile with 3 VMs
+1. Vagrantfile with VMs (single-node default, multi-node optional)
 2. Ansible roles: common, ubuntu, debian, containerd, rke2, gitops
 3. Ansible playbooks: site.yml (4 phases)
 4. ArgoCD bootstrap + app-of-apps

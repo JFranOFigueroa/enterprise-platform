@@ -76,10 +76,10 @@
 
 ## 3. Despliegue Local (dev-local)
 
-### Opción A: Bootstrap completo (desde cero)
+### Opción A: Single-Node (Default)
 
 ```bash
-# 1. Levantar VMs
+# 1. Levantar VM (master-01 only)
 cd infrastructure/local-lab/vagrant
 vagrant up
 
@@ -89,23 +89,50 @@ cd ../../..
 ```
 
 **Resultado esperado:**
-- 3 VMs corriendo (master-01, worker-01, worker-02)
-- RKE2 cluster funcionando
+- 1 VM corriendo (master-01)
+- RKE2 cluster de 1 nodo funcionando
 - ArgoCD desplegado en namespace `gitops`
 - IUMBIT desplegado en namespace `apps-dev`
 - Platform components (cert-manager, monitoring, logging) desplegados
 
-### Opción B: Solo Ansible (VMs ya existen)
+### Opción B: Multi-Node (Workers Opcionales)
 
 ```bash
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+# 1. Levantar VMs (master-01 + worker-01 + worker-02)
+cd infrastructure/local-lab/vagrant
+EP_WORKERS=true vagrant up
+
+# 2. Ejecutar Ansible con --workers
+cd ../../..
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
 ```
 
-### Opción C: Reconstruir desde cero
+**Resultado esperado:**
+- 3 VMs corriendo (master-01, worker-01, worker-02)
+- RKE2 cluster de 3 nodos funcionando
+- Workloads distribuidos entre worker-01 y worker-02
+- Misma plataforma que single-node, con mayor capacidad
+
+### Opción C: Solo Ansible (VMs ya existen)
 
 ```bash
+# Single-node
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Multi-node
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+```
+
+### Opción D: Reconstruir desde cero
+
+```bash
+# Single-node
 vagrant destroy -f && vagrant up && \
   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Multi-node
+vagrant destroy -f && EP_WORKERS=true vagrant up && \
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
 ```
 
 ### Acceso a la plataforma
@@ -201,6 +228,7 @@ kubectl get pods -A
 | Argumento | Descripción | Default | Ejemplo |
 |-----------|-------------|---------|---------|
 | `-i` | Path al inventory file | (requerido) | `inventory/local-lab/hosts.yml` |
+| `--workers` | Usar inventory multi-nodo (master + workers) | `false` | `--workers` |
 | `--extra-vars "target_environment=X"` | Ambiente destino | `dev-local` | `production` |
 | `--extra-vars "register_cluster=true"` | Registrar cluster en ArgoCD | `false` | `true` |
 
@@ -548,7 +576,7 @@ kubectl patch application <app-name> -n gitops \
 ## Comandos de Referencia Rápida
 
 ```bash
-# === DEV LOCAL ===
+# === DEV LOCAL (Single-Node) ===
 # Bootstrap completo
 vagrant destroy -f && vagrant up && \
   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
@@ -556,9 +584,13 @@ vagrant destroy -f && vagrant up && \
 # Solo Ansible
 ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
 
-# Reconstruir desde cero
-vagrant destroy -f && vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+# === DEV LOCAL (Multi-Node) ===
+# Bootstrap completo
+vagrant destroy -f && EP_WORKERS=true vagrant up && \
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+
+# Solo Ansible
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
 
 # === CLOUD ===
 # QA

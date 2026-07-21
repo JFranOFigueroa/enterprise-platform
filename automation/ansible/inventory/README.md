@@ -4,10 +4,18 @@
 
 | Inventory | Environment | Provisioner | Command |
 |-----------|-------------|-------------|---------|
-| local-lab | Desarrollo local | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml` |
+| local-lab | Desarrollo local (single-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml` |
+| local-lab (multi) | Desarrollo local (multi-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers` |
 | onprem | Servidores existentes | Manual / Terraform | `./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml` |
 | cloud-digitalocean | DigitalOcean | Terraform | `./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml` |
 | cloud-aws | AWS EC2 | Terraform | `./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml` |
+
+### Local Lab Inventories
+
+| File | Nodes | Use Case |
+|------|-------|----------|
+| `local-lab/hosts.yml` | master-01 only | Default (single-node) |
+| `local-lab/hosts-multi.yml` | master-01 + worker-01 + worker-02 | Multi-node with `--workers` |
 
 ## Dynamic Inventories
 

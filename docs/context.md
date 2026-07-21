@@ -56,8 +56,8 @@ enterprise-platform/
 - [x] .gitignore comprehensivo (excluye secrets, app_vars/, kubeconfig, .env)
 - [x] run-ansible.sh wrapper portable (SSH fix, temp inventory, key copy)
 - [x] SSH keys con paths relativos (portable)
-- [x] ansible_host: 192.168.100.21 (WSL2 compatible)
-- [x] 3-nodo RKE2 cluster (master-01 + worker-01 + worker-02)
+- [x] ansible_host: 192.168.0.150 (WSL2 compatible)
+- [x] 3-nodo RKE2 cluster (master-01 + worker-01 + worker-02) — **Opcional**: default es single-node
 - [x] ArgoCD desplegado via Helm (NodePort 30080/30443)
 - [x] local-path-provisioner v0.0.36 como default StorageClass
 - [x] cert-manager + ClusterIssuers (selfsigned-issuer Ready)
@@ -88,6 +88,8 @@ enterprise-platform/
 - [x] **ArgoCD bootstrap waits:** Waits declarativos (Application status) + waits imperativos (namespace, pods, webhook) con reintentos
 - [x] **cert-manager Application fix:** Application name corregido a `platform-dev-local-cert-manager`; webhook deployment name actualizado
 - [x] **Platform Services Ingress:** Grafana, Prometheus, Alertmanager y Loki expuestos via NGINX Ingress (hosts: `*.localhost:8080`)
+- [x] **Optional Workers:** Default single-node (master-01 only), workers optional via `--workers` flag and `EP_WORKERS=true`
+- [x] **Dual Inventory:** `hosts.yml` (single-node) + `hosts-multi.yml` (multi-node) for local-lab
 
 **Pendiente:**
 - [ ] Tests de humo

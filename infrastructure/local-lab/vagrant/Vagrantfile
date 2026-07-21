@@ -1,16 +1,22 @@
 # =============================================================================
 # Enterprise Platform - Local Lab (Vagrant + VMware Desktop)
 # =============================================================================
-# Creates 3 VMs for the RKE2 cluster:
-#   - master-01 (control plane)
-#   - worker-01 (agent)
-#   - worker-02 (agent)
+# Creates VMs for the RKE2 cluster:
+#   - master-01 (control plane) — always created
+#   - worker-01 (agent)         — optional (EP_WORKERS=true)
+#   - worker-02 (agent)         — optional (EP_WORKERS=true)
+#
+# Default: Single-node cluster (master-01 only).
+# Multi-node: Set EP_WORKERS=true to create worker VMs.
 #
 # Usage:
-#   vagrant up           # Create all VMs
-#   vagrant ssh master-01  # SSH to master
-#   vagrant destroy -f   # Destroy all VMs
+#   vagrant up                              # Single-node (master-01 only)
+#   EP_WORKERS=true vagrant up              # Multi-node (master + workers)
+#   vagrant ssh master-01                   # SSH to master
+#   vagrant destroy -f                      # Destroy all VMs
 # =============================================================================
+
+WORKERS = ENV['EP_WORKERS'] == 'true'
 
 NODES = [
   {
@@ -50,6 +56,8 @@ Vagrant.configure("2") do |config|
   end
 
   NODES.each do |node|
+    next if node[:role] == 'agent' && !WORKERS
+
     config.vm.define node[:name] do |cfg|
       cfg.vm.hostname = node[:hostname]
       cfg.vm.network "private_network", ip: node[:ip]

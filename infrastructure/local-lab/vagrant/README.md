@@ -8,35 +8,57 @@
 
 ## Quick Start
 
-### From Windows PowerShell:
+### Single-Node (Default)
+
 ```powershell
+# From Windows PowerShell:
 cd infrastructure\local-lab\vagrant
-vagrant up           # Create all VMs
-vagrant ssh master-01  # SSH to master
-vagrant destroy -f   # Destroy all VMs
+vagrant up                    # Create master-01 only
+vagrant ssh master-01         # SSH to master
+vagrant destroy -f            # Destroy all VMs
 ```
 
-### From WSL (Ansible):
+### Multi-Node (Optional Workers)
+
+```powershell
+# From Windows PowerShell:
+cd infrastructure\local-lab\vagrant
+$env:EP_WORKERS="true"        # Enable workers (PowerShell)
+vagrant up                    # Create master-01 + worker-01 + worker-02
+vagrant destroy -f            # Destroy all VMs
+```
+
 ```bash
-cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+# From WSL/Git Bash:
+EP_WORKERS=true vagrant up    # Create all 3 VMs
 ```
 
 ## VMs
 
-| VM | Hostname | IP | Role | CPUs | RAM |
-|----|----------|-----|------|------|-----|
-| ep-master-01 | master-01 | 192.168.56.10 | server | 2 | 4GB |
-| ep-worker-01 | worker-01 | 192.168.56.11 | agent | 2 | 4GB |
-| ep-worker-02 | worker-02 | 192.168.56.12 | agent | 2 | 4GB |
+| VM | Hostname | IP | Role | CPUs | RAM | Default |
+|----|----------|-----|------|------|-----|---------|
+| ep-master-01 | master-01 | 192.168.56.10 | server | 2 | 4GB | Always created |
+| ep-worker-01 | worker-01 | 192.168.56.11 | agent | 2 | 4GB | `EP_WORKERS=true` |
+| ep-worker-02 | worker-02 | 192.168.56.12 | agent | 2 | 4GB | `EP_WORKERS=true` |
+
+## Ansible
+
+```bash
+# Single-node (default):
+cd automation/ansible
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+
+# Multi-node (with workers):
+./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+```
 
 ## Network
 
 VMs communicate via private_network (192.168.56.x).
 Host access is via port forwarding:
 - master-01: 127.0.0.1:2222 → VM:22
-- worker-01: 127.0.0.1:2200 → VM:22
-- worker-02: 127.0.0.1:2201 → VM:22
+- worker-01: 127.0.0.1:2200 → VM:22 (only when `EP_WORKERS=true`)
+- worker-02: 127.0.0.1:2201 → VM:22 (only when `EP_WORKERS=true`)
 
 ## Troubleshooting
 
