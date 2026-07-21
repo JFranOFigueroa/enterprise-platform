@@ -25,4 +25,4 @@ cd automation/ansible
 
 - Ubuntu 24.04 LTS
 - SSH access with sudo
-- Minimum 2 CPU, 4GB RAM per node
+- Minimum 4 CPU, 6GB RAM (master); 2 CPU, 4GB RAM (workers)

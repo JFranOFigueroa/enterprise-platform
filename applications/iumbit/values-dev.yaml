@@ -9,13 +9,23 @@ postgresql:
       size: 10Gi
     resources:
       requests:
-        cpu: 250m
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
         memory: 512Mi
 
 backend:
   replicas: 1
   hpa:
     enabled: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 frontend:
   replicas: 1
@@ -26,6 +36,13 @@ frontend:
   vueAppMicrosoftTenantId: "common"
   hpa:
     enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
 
 secrets:
   dbUsername: "postgres"

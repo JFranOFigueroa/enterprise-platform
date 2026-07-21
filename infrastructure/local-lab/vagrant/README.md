@@ -37,7 +37,7 @@ EP_WORKERS=true vagrant up    # Create all 3 VMs
 
 | VM | Hostname | IP | Role | CPUs | RAM | Default |
 |----|----------|-----|------|------|-----|---------|
-| ep-master-01 | master-01 | 192.168.56.10 | server | 2 | 4GB | Always created |
+| ep-master-01 | master-01 | 192.168.56.10 | server | 4 | 6GB | Always created |
 | ep-worker-01 | worker-01 | 192.168.56.11 | agent | 2 | 4GB | `EP_WORKERS=true` |
 | ep-worker-02 | worker-02 | 192.168.56.12 | agent | 2 | 4GB | `EP_WORKERS=true` |
 

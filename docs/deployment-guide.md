@@ -63,7 +63,7 @@
 - VMware Workstation o VirtualBox
 - Vagrant instalado
 - Ansible instalado en la máquina local
-- 8GB+ RAM disponible
+- 6GB+ RAM disponible
 
 ### Para Cloud (QA/Staging/Production)
 

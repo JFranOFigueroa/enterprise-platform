@@ -23,8 +23,8 @@ NODES = [
     name: "ep-master-01",
     hostname: "master-01",
     ip: "192.168.56.10",
-    cpus: 2,
-    memory: 4096,
+    cpus: 4,
+    memory: 6144,
     role: "server"
   },
   {
