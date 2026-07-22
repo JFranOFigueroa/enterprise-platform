@@ -12,7 +12,7 @@ postgresql:
   primary:
     persistence:
       enabled: true
-      size: 50Gi
+      size: 20Gi
       storageClassName: local-path
     resources:
       requests:
