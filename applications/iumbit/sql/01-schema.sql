@@ -20,6 +20,8 @@
 -- rollback ALTER TABLE "hr"."department" DROP CONSTRAINT "department_department_fk";
 -- rollback ALTER TABLE "hr"."department" DROP CONSTRAINT "department_company_fk";
 -- rollback ALTER TABLE "hr"."company_work_days" DROP CONSTRAINT "company_work_days_company_fk";
+-- rollback ALTER TABLE "hr"."branch" DROP CONSTRAINT "branch_admin_user_fk";
+-- rollback ALTER TABLE "hr"."branch" DROP CONSTRAINT "branch_company_fk";
 -- rollback ALTER TABLE "auth"."user_role" DROP CONSTRAINT "user_role_user_fk";
 -- rollback ALTER TABLE "auth"."user_role" DROP CONSTRAINT "user_role_role_fk";
 -- rollback ALTER TABLE "auth"."user_company" DROP CONSTRAINT "user_company_user_fk";
@@ -30,7 +32,6 @@
 -- rollback ALTER TABLE "auth"."refresh_token" DROP CONSTRAINT "fk_refresh_token_user";
 -- rollback ALTER TABLE "audit"."audit_trail" DROP CONSTRAINT "audit_trail_user_fk";
 
--- rollback DROP TABLE "hr"."daily_attendance_record";
 -- rollback DROP TABLE "event_type";
 -- rollback DROP TABLE "event";
 -- rollback DROP TABLE "device";
@@ -45,6 +46,8 @@
 -- rollback DROP TABLE "hr"."department";
 -- rollback DROP TABLE "hr"."company_work_days";
 -- rollback DROP TABLE "hr"."company";
+-- rollback DROP TABLE "hr"."daily_attendance_record";
+-- rollback DROP TABLE "hr"."branch";
 -- rollback DROP TABLE "auth"."user_role";
 -- rollback DROP TABLE "auth"."user_company";
 -- rollback DROP TABLE "auth"."user";
@@ -54,6 +57,7 @@
 -- rollback DROP TABLE "auth"."permission";
 -- rollback DROP TABLE "auth"."oauth_account";
 -- rollback DROP TABLE "audit"."audit_trail";
+
 
 -- rollback DROP FUNCTION public.uuid_v7();
 -- rollback DROP EXTENSION IF EXISTS pgcrypto;
@@ -223,6 +227,7 @@ CREATE TABLE "hr"."department" (
     "description" TEXT,
     "parent_department_id" UUID,
     "fk_company_id" UUID,
+    "fk_branch_id" UUID,
     "status" BOOLEAN,
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP
@@ -295,6 +300,7 @@ CREATE TABLE "hr"."schedule" (
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
     "tolerance" SMALLINT,
+    "absent_tolerance" SMALLINT,
     "entity_level" VARCHAR(50) NOT NULL,
     "entity_id" UUID NOT NULL,
     "effective_date" DATE,
@@ -370,7 +376,7 @@ CREATE TABLE "event_type" (
 
 -- NUEVAS IMPLEMENTACIONES
 CREATE TABLE "hr"."daily_attendance_record" (
-    "id" UUID PRIMARY KEY,
+    "id" UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     "date" DATE NOT NULL,
     "schedule_snapshot_name" VARCHAR(255),
     "employee_id" UUID NOT NULL,
@@ -379,6 +385,24 @@ CREATE TABLE "hr"."daily_attendance_record" (
     "hours_worked" NUMERIC(5, 2) NOT NULL DEFAULT 0.0,
     "overtime_hours" NUMERIC(5, 2) NOT NULL DEFAULT 0.0,
     "status" VARCHAR(50) NOT NULL, -- Valores: PRESENT, ABSENT, LATE, DAY_OFF
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP
+);
+
+CREATE TABLE "hr"."branch" (
+    "id" UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(100) NOT NULL,
+    "address_line_1" VARCHAR(255),
+    "address_line_2" VARCHAR(255),
+    "city" VARCHAR(100),
+    "state_province" VARCHAR(100),
+    "postal_code" VARCHAR(20),
+    "country" VARCHAR(100) DEFAULT 'México',
+    "location_latitude" DOUBLE PRECISION,
+    "location_longitude" DOUBLE PRECISION,
+    "fk_company_id" UUID NOT NULL,
+    "fk_admin_user_id" UUID NOT NULL,
+    "status" BOOLEAN DEFAULT true,
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP
 );
@@ -394,6 +418,7 @@ ALTER TABLE "auth"."user_role" ADD CONSTRAINT "user_role_role_fk" FOREIGN KEY ("
 ALTER TABLE "auth"."user_role" ADD CONSTRAINT "user_role_user_fk" FOREIGN KEY ("fk_user_id") REFERENCES "auth"."user" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "hr"."company_work_days" ADD CONSTRAINT "company_work_days_company_fk" FOREIGN KEY ("company_id") REFERENCES "hr"."company" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "hr"."department" ADD CONSTRAINT "department_company_fk" FOREIGN KEY ("fk_company_id") REFERENCES "hr"."company" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "hr"."department" ADD CONSTRAINT "fk_department_branch" FOREIGN KEY ("fk_branch_id") REFERENCES "hr"."branch"(id) DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "hr"."department" ADD CONSTRAINT "department_department_fk" FOREIGN KEY ("parent_department_id") REFERENCES "hr"."department" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "hr"."employee" ADD CONSTRAINT "employee_employee_fk" FOREIGN KEY ("manager_id") REFERENCES "hr"."employee" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "hr"."employee_health_insurance" ADD CONSTRAINT "employee_health_insurance_employee_fk" FOREIGN KEY ("fk_employee_id") REFERENCES "hr"."employee" ("id") DEFERRABLE INITIALLY IMMEDIATE;
@@ -410,3 +435,5 @@ ALTER TABLE "event" ADD CONSTRAINT "event_employee_fk" FOREIGN KEY ("fk_employee
 ALTER TABLE "event" ADD CONSTRAINT "event_event_type_fk" FOREIGN KEY ("fk_event_type_id") REFERENCES "event_type" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "event_type" ADD CONSTRAINT "event_type_company_fk" FOREIGN KEY ("fk_company_id") REFERENCES "hr"."company" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE "event_type" ADD CONSTRAINT "event_type_parent_fk" FOREIGN KEY ("event_parent_id") REFERENCES "event_type" ("id") ON DELETE SET NULL DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "hr"."branch" ADD CONSTRAINT "branch_company_fk" FOREIGN KEY ("fk_company_id") REFERENCES "hr"."company" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "hr"."branch" ADD CONSTRAINT "branch_user_fk" FOREIGN KEY ("fk_admin_user_id") REFERENCES "auth"."user" ("id") DEFERRABLE INITIALLY IMMEDIATE;
