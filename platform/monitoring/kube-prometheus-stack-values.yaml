@@ -9,10 +9,18 @@ prometheus:
     pathType: Prefix
   prometheusSpec:
     retention: 15d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
+          storageClassName: local-path
           resources:
             requests:
               storage: 10Gi
@@ -23,6 +31,14 @@ grafana:
   persistence:
     enabled: true
     size: 5Gi
+    storageClassName: local-path
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
   grafana.ini:
     server:
       root_url: "https://gfa.iumbit.com.mx"
@@ -50,10 +66,18 @@ alertmanager:
     path: /
     pathType: Prefix
   alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
     storage:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
+          storageClassName: local-path
           resources:
             requests:
               storage: 1Gi
@@ -149,7 +173,7 @@ serviceMonitors:
   - name: platform-loki
     namespaceSelector:
       matchNames:
-        - logging
+        - platform-logging
     selector:
       matchLabels:
         app.kubernetes.io/name: loki

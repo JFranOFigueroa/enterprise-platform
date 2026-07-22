@@ -1,12 +1,10 @@
 # Enterprise Platform - Loki Values
 deploymentMode: SingleBinary
+
 loki:
   auth_enabled: false
   storage:
     type: filesystem
-  storage_config:
-    filesystem:
-      directory: /loki/storage
   commonConfig:
     replication_factor: 1
   schemaConfig:
@@ -21,6 +19,12 @@ loki:
 
 singleBinary:
   replicas: 1
+  persistence:
+    enabled: true
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
   ingress:
     enabled: true
     ingressClassName: nginx
@@ -29,14 +33,17 @@ singleBinary:
     paths:
       - /
 
+gateway:
+  enabled: false
+
+minio:
+  enabled: false
+
 monitoring:
   dashboards:
     enabled: true
   serviceMonitor:
     enabled: true
-
-gateway:
-  enabled: false
 
 read:
   replicas: 0
