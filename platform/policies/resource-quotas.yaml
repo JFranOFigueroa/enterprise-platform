@@ -1,0 +1,43 @@
+# =============================================================================
+# Enterprise Platform - Resource Quotas & Limit Ranges
+# =============================================================================
+# Limits total resource consumption per namespace to prevent VPS exhaustion.
+#
+# ResourceQuota: caps CPU/memory/pods at namespace level
+# LimitRange: sets default requests/limits for containers without explicit specs
+# =============================================================================
+
+---
+# ResourceQuota - limits total resources in apps-production namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: apps-production-quota
+  namespace: apps-production
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 3Gi
+    limits.cpu: "4"
+    limits.memory: 6Gi
+    pods: "10"
+
+---
+# LimitRange - default requests/limits for containers without explicit specs
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: apps-production-limits
+  namespace: apps-production
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      default:
+        cpu: 500m
+        memory: 512Mi
+      max:
+        cpu: "1"
+        memory: 1Gi

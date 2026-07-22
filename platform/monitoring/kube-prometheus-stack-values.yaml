@@ -26,10 +26,17 @@ grafana:
   ingress:
     enabled: true
     ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
     hosts:
       - grafana.localhost
+      - gfana.iumbit.com.mx
     path: /
     pathType: Prefix
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - gfana.iumbit.com.mx
 
 alertmanager:
   enabled: true
@@ -54,6 +61,65 @@ nodeExporter:
 
 kubeStateMetrics:
   enabled: true
+
+additionalPrometheusRulesMap:
+  platform-alerts:
+    groups:
+      - name: platform-resource-alerts
+        rules:
+          # Node CPU > 90% for 5 minutes
+          - alert: NodeHighCPU
+            expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node {{ $labels.instance }} CPU > 90%"
+
+          # Node memory > 90% for 5 minutes
+          - alert: NodeHighMemory
+            expr: 100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node {{ $labels.instance }} memoria > 90%"
+
+          # Pod OOMKilled
+          - alert: PodOOMKilled
+            expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.pod }} OOMKilled"
+
+          # HPA at max replicas (cannot scale further)
+          - alert: HPAAtMaxReplicas
+            expr: kube_horizontalpodautoscaler_status_current_replicas == kube_horizontalpodautoscaler_spec_max_replicas
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "HPA {{ $labels.horizontalpodautoscaler }} en maximo replicas"
+
+          # Pod in CrashLoopBackOff
+          - alert: PodCrashLooping
+            expr: rate(kube_pod_container_status_restarts_total[15m]) * 60 * 15 > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Pod {{ $labels.pod }} en CrashLoopBackOff"
+
+          # PVC almost full (>85%)
+          - alert: PVCNearFull
+            expr: kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "PVC {{ $labels.persistentvolumeclaim }} > 85% lleno"
 
 serviceMonitors:
   - name: platform-ingress-nginx

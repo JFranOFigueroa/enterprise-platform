@@ -40,9 +40,9 @@ backend:
   hpa:
     enabled: true
     minReplicas: 1
-    maxReplicas: 10
+    maxReplicas: 3
     targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 90
+    targetMemoryUtilizationPercentage: 85
     behavior:
       scaleDown:
         stabilizationWindowSeconds: 300
@@ -51,15 +51,15 @@ backend:
             value: 25
             periodSeconds: 60
       scaleUp:
-        stabilizationWindowSeconds: 0
+        stabilizationWindowSeconds: 30
         policies:
           - type: Percent
             value: 50
             periodSeconds: 60
           - type: Pods
-            value: 2
+            value: 1
             periodSeconds: 60
-        selectPolicy: Max
+        selectPolicy: Min
 
 frontend:
   enabled: true
@@ -83,9 +83,9 @@ frontend:
   hpa:
     enabled: true
     minReplicas: 1
-    maxReplicas: 20
+    maxReplicas: 3
     targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 75
     behavior:
       scaleDown:
         stabilizationWindowSeconds: 300
@@ -94,15 +94,15 @@ frontend:
             value: 25
             periodSeconds: 60
       scaleUp:
-        stabilizationWindowSeconds: 0
+        stabilizationWindowSeconds: 30
         policies:
           - type: Percent
             value: 50
             periodSeconds: 60
           - type: Pods
-            value: 2
+            value: 1
             periodSeconds: 60
-        selectPolicy: Max
+        selectPolicy: Min
 
 secrets:
   dbUsername: "CHANGE_ME"
