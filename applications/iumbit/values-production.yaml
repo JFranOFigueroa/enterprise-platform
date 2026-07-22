@@ -68,7 +68,7 @@ frontend:
     tag: "v1.0.0-dev.3"
   port: 8080
   replicas: 1
-  vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
+  vueAppApiUrl: "/check-it-1.0.0-dev.17/api/v1/"
   vueCliTest: "true"
   vueAppGoogleClientId: "CHANGE_ME"
   vueAppMicrosoftClientId: "CHANGE_ME"
@@ -133,7 +133,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.16
+        - path: /check-it-1.0.0-dev.17
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
@@ -144,7 +144,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.16
+        - path: /check-it-1.0.0-dev.17
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
@@ -155,7 +155,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.16
+        - path: /check-it-1.0.0-dev.17
           pathType: Prefix
           serviceName: backend
           servicePort: 8080

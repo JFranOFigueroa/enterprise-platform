@@ -1,7 +1,7 @@
 # Enterprise Platform - Code Reference
 
 > Referencia técnica completa de todo el código, configuraciones e infraestructura del proyecto.
-> Última actualización: 2026-07-14
+> Última actualización: 2026-07-16
 
 ---
 
@@ -86,7 +86,11 @@ enterprise-platform/
 │   ├── components/
 │   │   ├── project.yaml
 │   │   ├── platform-apps.yaml
-│   │   └── cluster-template.yaml.j2        # Cluster registration (template)
+│   │   ├── policies-app.yaml         # ApplicationSet for policies (NEW)
+│   │   └── cluster-template.yaml.j2  # Cluster registration (template)
+│   ├── policies/                     # Resource protection (NEW)
+│   │   ├── resource-quotas.yaml      # ResourceQuota + LimitRange
+│   │   └── priority-classes.yaml     # PriorityClasses
 │   ├── registration/
 │   │   └── cluster-local.yaml              # Cluster registration (dev-local)
 │   ├── gitops/
@@ -98,6 +102,8 @@ enterprise-platform/
 │   ├── cloud/
 │   ├── local-lab/
 │   └── onprem/
+│       └── scripts/
+│           └── prepare-local.sh            # Server preparation for Ansible localhost mode
 ├── docs/
 ├── tests/
 └── tools/
@@ -345,6 +351,16 @@ platform-<cluster-name>-<component>
 
 Los servicios de plataforma (Grafana, Prometheus, Alertmanager, Loki) se exponen via NGINX Ingress Controller, desplegado como parte del RKE2 cluster.
 
+#### ConfigMap de la Aplicación (IUMBIT)
+
+**Archivo:** `applications/iumbit/templates/configmap.yaml`
+
+| Variable | Valor | Propósito |
+|----------|-------|-----------|
+| `JAVA_OPTS` | `-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m` | Tuning JVM para WildFly backend |
+
+El ConfigMap se sincroniza automáticamente via ArgoCD. Al cambiar `JAVA_OPTS`, el pod reinicia y aplica la nueva configuración JVM.
+
 #### Flujo de Tráfico
 
 ```
@@ -428,6 +444,131 @@ Para exponer un nuevo servicio via Ingress:
 2. Definir host (e.g. `mi-servicio.localhost`)
 3. Asegurar que el servicio tiene `ingressClassName: nginx`
 4. Push a Git → ArgoCD sincroniza → Ingress creado automáticamente
+
+---
+
+## Alerting Rules
+
+Ubicación: `platform/monitoring/kube-prometheus-stack-values.yaml`
+
+Las PrometheusRules se despliegan como parte de kube-prometheus-stack via el ApplicationSet `policies-app.yaml` o directamente en los values del chart.
+
+| Alerta | Severidad | Condición | Duración | Remediación |
+|--------|-----------|-----------|----------|-------------|
+| NodeHighCPU | warning | `100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90` | 5m | Escalar o reducir carga |
+| NodeHighMemory | warning | `100 - (MemAvailable/MemTotal * 100) > 90` | 5m | Verificar pods, evictionar si necesario |
+| PodOOMKilled | critical | `kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0` | 1m | Aumentar memory limit |
+| HPAAtMaxReplicas | warning | `current_replicas == max_replicas` | 5m | Aumentar maxReplicas o resources |
+| PodCrashLooping | warning | `rate(restarts_total[15m]) * 60 * 15 > 0` | 15m | Verificar logs, JAVA_OPTS |
+| PVCNearFull | warning | `used_bytes / capacity_bytes > 0.85` | 5m | Expandir PVC o limpiar datos |
+
+### Configuración de Alerting Rules
+
+```yaml
+# En kube-prometheus-stack-values.yaml
+additionalPrometheusRulesMap:
+  onprem-resource-alerts:
+    groups:
+      - name: onprem-resource-alerts
+        rules:
+          - alert: NodeHighCPU
+            expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node high CPU usage"
+          # ... (ver archivo completo en platform/monitoring/kube-prometheus-stack-values.yaml)
+```
+
+---
+
+## Resource Protection (Policies)
+
+Ubicación: `platform/policies/`
+
+### ResourceQuota + LimitRange
+
+**Archivo:** `platform/policies/resource-quotas.yaml`
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: apps-resource-quota
+  namespace: apps-production
+spec:
+  hard:
+    requests.cpu: "3"
+    requests.memory: 4Gi
+    limits.cpu: "6"
+    limits.memory: 8Gi
+    pods: "12"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: apps-limit-range
+  namespace: apps-production
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "1"
+        memory: 2Gi
+```
+
+### PriorityClasses
+
+**Archivo:** `platform/policies/priority-classes.yaml`
+
+| PriorityClass | Value | Descripción |
+|---------------|-------|-------------|
+| `platform-critical` | 1000000 | ArgoCD, cert-manager, monitoring |
+| `platform-high` | 100000 | Ingress controller, Prometheus |
+| `app-low` | 1000 | IUMBIT y otras apps (primero en evictionarse) |
+
+### policies-app.yaml (ApplicationSet)
+
+**Archivo:** `platform/components/policies-app.yaml`
+
+Despliega `platform/policies/` via ArgoCD usando un source de tipo `directory` con path a nivel source:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-policies
+  namespace: gitops
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: 'platform-{{name}}-policies'
+    spec:
+      project: enterprise-platform
+      source:
+        repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
+        targetRevision: main
+        path: platform/policies
+      destination:
+        server: '{{server}}'
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+```
 
 ---
 

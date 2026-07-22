@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-07-14
+> Última actualización: 2026-07-16
 
 ---
 
@@ -22,8 +22,8 @@ enterprise-platform/
 │   └── <app-name>/         # Cada app es autocontenida (Chart + app_vars/)
 ├── automation/             # Ansible: inventarios, playbooks, roles
 ├── bootstrap/              # ArgoCD bootstrap (app-of-apps, app-of-platform)
-├── platform/               # Servicios compartidos (ingress, monitoring, logging, certs)
-├── infrastructure/         # Cloud-agnostic: local-lab, on-prem, cloud/*
+├── platform/               # Servicios compartidos (ingress, monitoring, logging, certs, policies)
+├── infrastructure/         # Cloud-agnostic: local-lab, on-prem (scripts/prepare-local.sh), cloud/*
 ├── docs/                   # Documentación (architecture/, runbooks/, archive/)
 ├── tests/                  # Tests de plataforma
 └── tools/                  # CLI tools y templates
@@ -95,10 +95,23 @@ enterprise-platform/
 - [x] **Cert-manager waits generalizados:** `platform-{{ target_environment }}-cert-manager` reemplaza hardcodeado `dev-local`
 - [x] **Cluster registration dinámico:** `cluster-template.yaml.j2` renderiza `cluster-{{ target_environment }}` para ambientes no-dev-local
 - [x] **On-Prem deployment guide:** Sección completa en `docs/deployment-guide.md` con 3 modos (SSH, workers, localhost)
+- [x] **HPA tuning:** maxReplicas=3, stabilizationWindow=30s, selectPolicy=Min (memory: 85%/75%)
+- [x] **ResourceQuota + LimitRange** para apps-production (CPU/memory/pods limits)
+- [x] **PriorityClasses:** platform-critical (1M), platform-high (100K), app-low (1K)
+- [x] **policies-app.yaml** ApplicationSet: Policies desplegadas via ArgoCD GitOps
+- [x] **6 PrometheusRules:** NodeHighCPU, NodeHighMemory, PodOOMKilled, HPAAtMaxReplicas, PodCrashLooping, PVCNearFull
+- [x] **Grafana domain fix:** root_url=https://gfa.iumbit.com.mx, eliminado grafana.localhost
+- [x] **Loki fixes:** deploymentMode=SingleBinary, schemaConfig (camelCase), store=tsdb, persistence 10Gi, minio disabled
+- [x] **prepare-local.sh:** Script de preparación para Ansible localhost mode (sysctl, UFW, chrony)
+- [x] **JAVA_OPTS en configmap:** -Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m
+- [x] **IUMBIT ingress producción:** bta.iumbit.com.mx (backend+frontend), SSL redirect disabled
+- [x] **Monitoring stack resources:** Prometheus (1Gi), Grafana (512Mi), Alertmanager (256Mi), storageClassName local-path
+- [x] **ServiceMonitor Loki fix:** namespace selector corregido de `logging` a `platform-logging`
+- [x] **ResourceQuota increase:** limits.cpu=6, limits.memory=8Gi, pods=12
+- [x] **LimitRange increase:** max memory=2Gi (para backend 1.5Gi)
 
 **Pendiente:**
 - [ ] Tests de humo
-- [ ] Configurar HPA para primera aplicación (ya listo en templates)
 - [ ] Deploy en QA/Staging/Production (requiere clusters cloud)
 - [ ] **Cloud cluster registration:** Auto-registro de clusters remotos en management ArgoCD
   - Crear template `platform/components/cluster-remote.yaml.j2`
@@ -170,6 +183,14 @@ enterprise-platform/
 | Promtail | 6.16.6 | Log shipping |
 | local-path-provisioner | v0.0.36 | Default StorageClass |
 
+### Capa de Políticas (Resource Protection)
+| Componente | Tipo | Propósito |
+|------------|------|-----------|
+| ResourceQuota | namespace-level | Limita CPU/memory/pods totales por namespace |
+| LimitRange | namespace-level | Defaults y max por contenedor |
+| PriorityClass | cluster-wide | Jerarquía de prioridades (critical/high/low) |
+| PrometheusRules | cluster-wide | 6 reglas de alerta (CPU, memoria, OOM, HPA, CrashLoop, PVC) |
+
 ---
 
 ## 7. Application Deployment Model
@@ -215,6 +236,17 @@ values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
 | `repo_clone_dest` | Destino del clone en el server | `/opt/enterprise-platform` | `defaults/main.yml` |
 | `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
 | `argocd_mode` | Modo ArgoCD | `local` | `playbooks/group_vars/all.yml` |
+
+### Bootstrap para On-Prem (localhost)
+
+Para desplegar en un servidor on-prem en modo localhost:
+
+1. Ejecutar script de preparación: `sudo ./infrastructure/onprem/scripts/prepare-local.sh`
+   - Instala Ansible, configura sysctl, UFW (10 reglas), deshabilita THP, habilita chrony
+2. Clonar repo: `git clone <url> /opt/nitesoftmx/enterprise-platform`
+3. Crear secrets: `cp playbooks/group_vars/secrets.yml.example playbooks/group_vars/secrets.yml`
+4. Editar secrets: configurar `onprem_master_node_ip`
+5. Ejecutar: `./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml --extra-vars "target_environment=production"`
 
 ### Archivos de Secrets por Aplicación
 

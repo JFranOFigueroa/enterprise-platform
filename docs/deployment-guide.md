@@ -1,7 +1,7 @@
 # Enterprise Platform - Deployment Guide
 
 > Guía completa para desplegar la plataforma y aplicaciones en todos los ambientes.
-> Última actualización: 2026-07-11
+> Última actualización: 2026-07-16
 
 ---
 
@@ -200,8 +200,8 @@ cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansibl
 git clone https://github.com/JFranOFigueroa/enterprise-platform.git
 cd enterprise-platform
 
-# 2. Instalar Ansible
-apt-get update && apt-get install -y ansible
+# 2. Preparar servidor (instala Ansible, configura sysctl, UFW, chrony)
+sudo ./infrastructure/onprem/scripts/prepare-local.sh
 
 # 3. Configurar credenciales (solo node_ip)
 cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansible/playbooks/group_vars/secrets.yml
@@ -216,12 +216,21 @@ cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansibl
 - RKE2 cluster funcionando en el servidor
 - ArgoCD desplegado en namespace `gitops` (gestiona solo este cluster)
 - IUMBIT desplegado en namespace `apps-production` con:
-  - HPA habilitado (backend: min:2, max:10; frontend: min:2, max:20)
-  - 3 replicas por defecto para backend y frontend
-  - Resources de producción (1-2 CPU, 1-4GB RAM)
-  - PostgreSQL con 50Gi storage
-  - TLS vía Let's Encrypt (requiere DNS configurado)
-- Platform components (cert-manager, monitoring, logging) desplegados
+  - HPA habilitado (backend: min:1, max:3; frontend: min:1, max:3)
+  - Resources de producción (200m-500m CPU, 512Mi-1Gi RAM)
+  - PostgreSQL con 20Gi storage (local-path)
+  - TLS vía Let's Encrypt (requiere DNS configurado: bta.iumbit.com.mx → IP del servidor)
+  - JAVA_OPTS: -Xms256m -Xmx512m (WildFly JVM tuning)
+- Platform components desplegados:
+  - cert-manager v1.17.1 (ClusterIssuers Ready)
+  - Monitoring: Prometheus (200m/512Mi req), Grafana (100m/256Mi req, root_url=https://gfa.iumbit.com.mx)
+  - Logging: Loki (SingleBinary, 10Gi persistence), Promtail
+  - NGINX Ingress Controller (hostPort 80/443)
+- Resource protection:
+  - ResourceQuota: limits.cpu=6, limits.memory=8Gi, pods=12
+  - LimitRange: max cpu=1, max memory=2Gi
+  - PriorityClasses: platform-critical, platform-high, app-low
+- Alerting rules: 6 PrometheusRules (NodeHighCPU, NodeHighMemory, PodOOMKilled, HPAAtMaxReplicas, PodCrashLooping, PVCNearFull)
 
 ### Variables de On-Premise
 
@@ -240,12 +249,15 @@ Las credenciales se configuran en `playbooks/group_vars/secrets.yml` (gitignored
 
 | Aspecto | dev-local | production (onprem) |
 |---------|-----------|---------------------|
-| HPA | Deshabilitado | Habilitado (CPU 70% + Mem 80%) |
-| Replicas | 1 | 3 |
-| Resources backend | 250m-500m / 256Mi-512Mi | 1-2 cores / 1Gi-2Gi |
-| PostgreSQL storage | 10Gi | 50Gi |
+| HPA | Deshabilitado | Habilitado (CPU 80% + Mem 85%, max 3) |
+| Replicas | 1 | 1 (HPA escala a 3) |
+| Resources backend | 250m-500m / 256Mi-512Mi | 200m-500m / 512Mi-1Gi |
+| PostgreSQL storage | 10Gi | 20Gi |
 | TLS | Self-signed | Let's Encrypt production |
-| Ingress host | localhost, iumbit-dev.local | iumbit.example.com |
+| Ingress host | localhost, iumbit-dev.local | bta.iumbit.com.mx |
+| ResourceQuota | No | limits.cpu=6, limits.memory=8Gi, pods=12 |
+| PriorityClasses | No | platform-critical, platform-high, app-low |
+| Alerting rules | No | 6 PrometheusRules |
 
 ---
 
@@ -563,6 +575,24 @@ kubectl get hpa -n apps-dev
 kubectl describe hpa -n apps-dev
 ```
 
+### Verificar Resource Protection
+
+```bash
+# ResourceQuota
+kubectl get resourcequota -n apps-production
+kubectl describe resourcequota apps-resource-quota -n apps-production
+
+# LimitRange
+kubectl get limitrange -n apps-production
+kubectl describe limitrange apps-limit-range -n apps-production
+
+# PriorityClasses
+kubectl get priorityclasses
+
+# PrometheusRules
+kubectl get prometheusrules -n platform-monitoring
+```
+
 ---
 
 ## 10. Troubleshooting
@@ -680,6 +710,9 @@ vagrant destroy -f && EP_WORKERS=true vagrant up && \
   --extra-vars "target_environment=production"
 
 # === ON-PREMISE (Production) ===
+# Preparar servidor (localhost mode)
+sudo ./infrastructure/onprem/scripts/prepare-local.sh
+
 # Configurar credenciales primero
 cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansible/playbooks/group_vars/secrets.yml
 # Editar secrets.yml con valores reales

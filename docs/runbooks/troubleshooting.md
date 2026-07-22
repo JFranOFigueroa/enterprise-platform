@@ -331,6 +331,151 @@ sudo ufw allow 443/tcp
 
 ---
 
+### 11. Pods Evicted por ResourceQuota
+
+**Causas posibles:**
+- ResourceQuota agotado (CPU/memory/pods)
+- HPA intentó escalar pero no hay cuota disponible
+
+**Síntomas:**
+- Pods en status `Evicted`
+- Eventos: `exceeded quota`
+- HPA no escala (evento "FailedCreate")
+
+**Diagnóstico:**
+```bash
+# Ver ResourceQuota
+kubectl get resourcequota -n apps-production
+kubectl describe resourcequota apps-resource-quota -n apps-production
+
+# Ver pods evicted
+kubectl get pods -n apps-production --field-selector=status.phase=Failed
+
+# Ver eventos
+kubectl get events -n apps-production | grep -i "exceeded\|quota\|evict"
+```
+
+**Solución:**
+```bash
+# Opción 1: Reducir resources de pods existentes
+kubectl edit deployment <nombre> -n apps-production
+# Reducir resources.requests y resources.limits
+
+# Opción 2: Aumentar ResourceQuota
+# Editar platform/policies/resource-quotas.yaml
+# Cambiar valores en spec.hard
+# Push a Git → ArgoCD sincroniza
+
+# Opción 3: Eliminar pods innecesarios
+kubectl delete pod <pod-name> -n apps-production
+```
+
+### ResourceQuota Actual (apps-production)
+| Recurso | Límite |
+|---------|--------|
+| requests.cpu | 3 |
+| requests.memory | 4Gi |
+| limits.cpu | 6 |
+| limits.memory | 8Gi |
+| pods | 12 |
+
+---
+
+### 12. Loki No Aparece en Prometheus (ServiceMonitor Namespace Fix)
+
+**Causa:** El ServiceMonitor de Loki apunta al namespace `logging` en vez de `platform-logging`.
+
+**Síntomas:**
+- Métricas de Loki no visibles en Prometheus
+- Loki aparece en "Targets" de Prometheus como "down"
+
+**Diagnóstico:**
+```bash
+# Ver ServiceMonitor de Loki
+kubectl get servicemonitor -n platform-logging
+kubectl get servicemonitor loki -n platform-logging -o yaml | grep -A 5 namespaceSelector
+
+# Verificar namespace de Loki
+kubectl get pods -n platform-logging | grep loki
+```
+
+**Solución:**
+```bash
+# Verificar que kube-prometheus-stack-values.yaml tiene:
+# namespaceSelector:
+#   matchLabels:
+#     kubernetes.io/metadata.name: platform-logging
+
+# Push a Git → ArgoCD sincroniza
+# Verificar: kubectl get servicemonitor -n platform-logging
+```
+
+---
+
+### 13. URLs de Grafana Muestran localhost
+
+**Causa:** Falta `grafana.ini.server.root_url` en los values de Grafana.
+
+**Síntomas:**
+- Dashboards públicos muestran `http://grafana.localhost:3000`
+- Share → Public Dashboard usa URL incorrecta
+
+**Diagnóstico:**
+```bash
+# Ver ConfigMap de Grafana
+kubectl get configmap -n platform-monitoring | grep grafana
+kubectl get configmap -n platform-monitoring -o yaml | grep -A 5 "server\|root_url"
+```
+
+**Solución:**
+```bash
+# Verificar que kube-prometheus-stack-values.yaml tiene:
+# grafana.ini:
+#   server:
+#     root_url: "https://gfa.iumbit.com.mx"
+
+# Push a Git → ArgoCD sincroniza
+# Verificar: kubectl get configmap -n platform-monitoring | grep grafana
+```
+
+### Dominio de Grafana (Producción)
+- **URL:** `https://gfa.iumbit.com.mx`
+- **DNS:** Configurar CNAME o A record apuntando al IP del VPS
+- **root_url:** Configurado en `grafana.ini.server.root_url`
+
+---
+
+### 14. Pods Pending por PriorityClass Conflicts
+
+**Causa:** Conflicto con PriorityClass built-in de Kubernetes (value: 2000000000).
+
+**Síntomas:**
+- Pods en estado `Pending`
+- Eventos: `insufficient priority`
+
+**Diagnóstico:**
+```bash
+# Ver PriorityClasses
+kubectl get priorityclasses
+
+# Verificar que no hay conflicto con el built-in "system-node-critical" (value: 2000000000)
+kubectl describe priorityclass system-node-critical
+```
+
+**Solución:**
+```bash
+# PriorityClasses de la plataforma usan valores menores:
+# platform-critical: 1000000
+# platform-high: 100000
+# app-low: 1000
+# system-node-critical: 2000000000 (built-in, no modificar)
+
+# Verificar que los PriorityClasses no tienen el mismo nombre que los built-in
+kubectl get priorityclasses -o custom-columns=NAME:.metadata.name,VALUE:.value
+```
+
+---
+
 ## Comandos de Diagnóstico Rápido
 
 ```bash

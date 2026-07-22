@@ -265,6 +265,138 @@ kubectl apply -f new-secret.yaml -n apps-dev
 
 ---
 
+## 11. Modificar ResourceQuota
+
+### Situación
+- El HPA no puede escalar porque se alcanzó el límite de ResourceQuota
+- Necesidad de más recursos para la aplicación
+
+### Procedimiento
+
+1. **Editar el archivo de ResourceQuota:**
+   ```bash
+   # Editar platform/policies/resource-quotas.yaml
+   # Cambiar valores en spec.hard
+   ```
+
+2. **Cambiar límites (ejemplo: aumentar limits.cpu de 6 a 8):**
+   ```yaml
+   spec:
+     hard:
+       requests.cpu: "3"
+       requests.memory: 4Gi
+       limits.cpu: "8"      # Cambiado de 6 a 8
+       limits.memory: 8Gi
+       pods: "12"
+   ```
+
+3. **Push a Git → ArgoCD sincroniza automáticamente**
+
+4. **Verificar:**
+   ```bash
+   kubectl get resourcequota -n apps-production
+   kubectl describe resourcequota apps-resource-quota -n apps-production
+   ```
+
+### ResourceQuota Actual (apps-production)
+| Recurso | Límite |
+|---------|--------|
+| requests.cpu | 3 |
+| requests.memory | 4Gi |
+| limits.cpu | 6 |
+| limits.memory | 8Gi |
+| pods | 12 |
+
+---
+
+## 12. Actualizar JAVA_OPTS
+
+### Situación
+- Backend (WildFly) usa mucha memoria o tiene OOMKilled
+- Necesidad de tunear la JVM
+
+### Procedimiento
+
+1. **Editar el ConfigMap de la aplicación:**
+   ```bash
+   # Editar applications/iumbit/values-production.yaml
+   # Buscar backend.javaOpts
+   ```
+
+2. **Cambiar JAVA_OPTS (ejemplo: aumentar heap a 1GB):**
+   ```yaml
+   backend:
+     javaOpts: "-Xms256m -Xmx1024m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=512m"
+   ```
+
+3. **Push a Git → ArgoCD sincroniza → ConfigMap se actualiza → Pod reinicia**
+
+4. **Verificar:**
+   ```bash
+   kubectl get configmap iumbit-config -n apps-production -o yaml
+   kubectl get pods -n apps-production -l app.kubernetes.io/component=backend
+   ```
+
+### JAVA_OPTS Actuales
+| Parámetro | Valor | Descripción |
+|-----------|-------|-------------|
+| `-Xms` | 256m | Heap inicial |
+| `-Xmx` | 512m | Heap máximo |
+| `-XX:MetaspaceSize` | 128m | Metaspace inicial |
+| `-XX:MaxMetaspaceSize` | 256m | Metaspace máximo |
+
+---
+
+## 13. Gestionar PrometheusRules
+
+### Situación
+- Agregar o modificar alertas personalizadas
+- Cambiar umbrales de alertas existentes
+
+### Procedimiento
+
+1. **Editar el archivo de alerting rules:**
+   ```bash
+   # Editar platform/monitoring/kube-prometheus-stack-values.yaml
+   # Buscar additionalPrometheusRulesMap
+   ```
+
+2. **Agregar o modificar una regla (ejemplo: cambiar umbral de NodeHighCPU):**
+   ```yaml
+   additionalPrometheusRulesMap:
+     onprem-resource-alerts:
+       groups:
+         - name: onprem-resource-alerts
+           rules:
+             - alert: NodeHighCPU
+               expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85  # Cambiado de 90 a 85
+               for: 5m
+               labels:
+                 severity: warning
+               annotations:
+                 summary: "Node high CPU usage"
+   ```
+
+3. **Push a Git → ArgoCD sincroniza**
+
+4. **Verificar:**
+   ```bash
+   kubectl get prometheusrules -n platform-monitoring
+   kubectl describe prometheusrule onprem-resource-alerts -n platform-monitoring
+   ```
+
+### Alerting Rules Actuales
+| Alerta | Severidad | Umbral |
+|--------|-----------|--------|
+| NodeHighCPU | warning | > 90% |
+| NodeHighMemory | warning | > 90% |
+| PodOOMKilled | critical | > 0 |
+| HPAAtMaxReplicas | warning | current == max |
+| PodCrashLooping | warning | restarts > 0 |
+| PVCNearFull | warning | > 85% |
+
+---
+
 ## Comandos Rápidos de Referencia
 
 ```bash

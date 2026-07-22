@@ -1,7 +1,7 @@
 # Environments Architecture
 
 > Documentación de la finalidad, estructura y reglas para la gestión de ambientes en Enterprise Platform.
-> Última actualización: 2026-07-11
+> Última actualización: 2026-07-16
 
 ## Propósito
 
@@ -71,14 +71,18 @@ app_secrets:
 
 | Parámetro | Dev | QA | Staging | Production |
 |-----------|-----|----|---------|------------|
-| `replicaCount` | 1 | 2 | 2 | 3+ |
-| `resources.requests.cpu` | 250m | 500m | 500m | 1000m |
-| `resources.requests.memory` | 256Mi | 512Mi | 512Mi | 1Gi |
+| `replicaCount` | 1 | 2 | 2 | 1 (HPA max 3) |
+| `resources.requests.cpu` | 250m | 500m | 500m | 200m |
+| `resources.requests.memory` | 256Mi | 512Mi | 512Mi | 512Mi |
 | `hpa.enabled` | false | true | true | true |
-| `hpa.minReplicas` | - | 2 | 2 | 3 |
-| `hpa.maxReplicas` | - | 4 | 6 | 10 |
-| `postgresql.persistence.size` | 10Gi | 10Gi | 20Gi | 50Gi |
-| `ingress.hosts` | iumbit-dev.local + localhost | iumbit-qa.local | iumbit-staging.local | iumbit.local |
+| `hpa.minReplicas` | - | 2 | 2 | 1 |
+| `hpa.maxReplicas` | - | 4 | 6 | 3 |
+| `postgresql.persistence.size` | 10Gi | 10Gi | 20Gi | 20Gi |
+| `ingress.hosts` | iumbit-dev.local + localhost | iumbit-qa.local | iumbit-staging.local | bta.iumbit.com.mx |
+| `ResourceQuota` | No | No | No | Sí (CPU/memory/pods) |
+| `LimitRange` | No | No | No | Sí (max cpu/memory) |
+| `PriorityClasses` | No | No | No | Sí (3 niveles) |
+| `Alerting rules` | No | No | No | Sí (6 reglas) |
 
 ### 4. Parámetros que NUNCA Cambian
 
@@ -86,6 +90,17 @@ app_secrets:
 - `service.type` (ClusterIP en todos)
 - `ingress.className` (nginx en todos)
 - `namespace` (definido en ArgoCD Application via app_vars, no en values)
+
+### 5. Resource Protection por Ambiente
+
+| Objeto | Tipo | Ambiente | Descripción |
+|--------|------|----------|-------------|
+| ResourceQuota | namespace-level | apps-production | Limita CPU/memory/pods totales: requests.cpu=3, limits.cpu=6, limits.memory=8Gi, pods=12 |
+| LimitRange | namespace-level | apps-production | Defaults y max por contenedor: max cpu=1, max memory=2Gi |
+| PriorityClass | cluster-wide | global | platform-critical (1M), platform-high (100K), app-low (1K) |
+| PrometheusRules | cluster-wide | global | 6 reglas: NodeHighCPU, NodeHighMemory, PodOOMKilled, HPAAtMaxReplicas, PodCrashLooping, PVCNearFull |
+
+Los ResourceQuota y LimitRange se despliegan en `apps-production` para proteger el VPS on-prem. En dev-local no se aplican (sin restricciones de recursos).
 
 ## Creación de Nuevo Ambiente
 
