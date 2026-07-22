@@ -24,7 +24,7 @@ NODES = [
     hostname: "master-01",
     ip: "192.168.56.10",
     cpus: 4,
-    memory: 6144,
+    memory: 8192,
     role: "server"
   },
   {

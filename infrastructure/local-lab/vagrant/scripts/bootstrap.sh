@@ -98,6 +98,11 @@ echo "[8/8] Configuring NTP..."
 systemctl enable chrony
 systemctl start chrony
 
+echo "=== Creating file project ==="
+mkdir -p /opt/nitesoftmx/
+git clone https://github.com/JFranOFigueroa/enterprise-platform.git /opt/nitesoftmx/enterprise-platform
+
+
 echo "=== Bootstrap Complete ==="
 echo "Node: $(hostname) (${NODE_IP})"
 echo "Role: ${ROLE}"
