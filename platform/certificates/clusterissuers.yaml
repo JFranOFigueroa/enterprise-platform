@@ -19,7 +19,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: admin@enterprise-platform.local
+    email: focampo@nitesoft.com.mx
     privateKeySecretRef:
       name: letsencrypt-staging-key
     solvers:
@@ -36,7 +36,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: admin@enterprise-platform.local
+    email: focampo@nitesoft.com.mx
     privateKeySecretRef:
       name: letsencrypt-production-key
     solvers:
