@@ -29,8 +29,8 @@ grafana:
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-production
     hosts:
-      - grafana.localhost
       - gfa.iumbit.com.mx
+      - grafana.localhost
     path: /
     pathType: Prefix
     tls:

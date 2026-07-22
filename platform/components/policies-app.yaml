@@ -28,9 +28,9 @@ spec:
       sources:
         - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
           targetRevision: main
+          path: platform/policies
           directory:
             recurse: false
-            path: platform/policies
       destination:
         server: "{{ .server }}"
         namespace: ""
