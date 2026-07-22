@@ -50,6 +50,8 @@ echo "[4/8] Installing base packages..."
 apt-get update
 apt-get install -y \
   curl \
+  ansible \
+  tree \
   wget \
   vim \
   git \

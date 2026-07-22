@@ -86,6 +86,8 @@ enterprise-platform/
 │   ├── components/
 │   │   ├── project.yaml
 │   │   ├── platform-apps.yaml
+│   │   └── cluster-template.yaml.j2        # Cluster registration (template)
+│   ├── registration/
 │   │   └── cluster-local.yaml              # Cluster registration (dev-local)
 │   ├── gitops/
 │   ├── ingress/
@@ -268,7 +270,7 @@ El ApplicationSet `platform-apps.yaml` usa un **matrix generator** (clusters × 
 
 #### Dev-Local Mode
 
-**Archivo:** `platform/components/cluster-local.yaml`
+**Archivo:** `platform/registration/cluster-local.yaml`
 
 ```yaml
 apiVersion: v1
@@ -297,7 +299,7 @@ stringData:
 ```yaml
 - name: Register local cluster in ArgoCD (dev-local mode)
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/components/cluster-local.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_clone_dest }}/platform/registration/cluster-local.yaml"
   when: argocd_mode == "local"
 ```
 

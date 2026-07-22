@@ -170,7 +170,7 @@
 
 - name: Register local cluster in ArgoCD (dev-local mode)
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/components/cluster-local.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/registration/cluster-local.yaml"
   register: cluster_reg_result
   changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
   when: argocd_mode == "local" and target_environment == "dev-local"
@@ -198,7 +198,7 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-{{ target_environment }} -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cluster_secret_check
-  until: cluster_secret_check.stdout == "cluster-{{ target_environment }}"
+  until: cluster_secret_check.stdout == "cluster-" + target_environment
   retries: 10
   delay: 5
   changed_when: false
@@ -278,7 +278,7 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cm_app_check
-  until: cm_app_check.stdout == "platform-{{ target_environment }}-cert-manager"
+  until: cm_app_check.stdout == "platform-" + target_environment + "-cert-manager"
   retries: 30
   delay: 10
   changed_when: false
