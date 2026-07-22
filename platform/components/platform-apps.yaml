@@ -43,12 +43,14 @@ spec:
                   helmRepoURL: https://grafana.github.io/helm-charts
                   valuesPath: platform/logging/loki-values.yaml
                   namespace: platform-logging
+                  releaseName: loki
                 - component: promtail
                   chart: promtail
                   chartVersion: 6.16.6
                   helmRepoURL: https://grafana.github.io/helm-charts
                   valuesPath: platform/logging/promtail-values.yaml
                   namespace: platform-logging
+                  releaseName: promtail
                 - component: metrics-server
                   chart: metrics-server
                   chartVersion: 3.12.0
@@ -65,6 +67,7 @@ spec:
           repoURL: "{{ .helmRepoURL }}"
           targetRevision: "{{ .chartVersion }}"
           helm:
+            releaseName: "{{ .releaseName }}"
             valueFiles:
               - $values/{{ .valuesPath }}
         - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
