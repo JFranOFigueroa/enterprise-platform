@@ -189,7 +189,7 @@ git clone https://github.com/JFranOFigueroa/enterprise-platform.git
 cd enterprise-platform
 
 # 2. Configurar credenciales
-cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansible/playbooks/group_vars/secrets.yml
 # Editar secrets.yml con tus valores:
 #   onprem_user, onprem_master_host, onprem_master_node_ip, onprem_private_key
 
@@ -214,7 +214,7 @@ cd enterprise-platform
 apt-get update && apt-get install -y ansible
 
 # 3. Configurar credenciales (solo node_ip)
-cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansible/playbooks/group_vars/secrets.yml
 # Editar secrets.yml: solo onprem_master_node_ip
 
 # 4. Ejecutar contra localhost
@@ -235,7 +235,7 @@ cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_va
 
 ### Variables de On-Premise
 
-Las credenciales se configuran en `group_vars/secrets.yml` (gitignored):
+Las credenciales se configuran en `playbooks/group_vars/secrets.yml` (gitignored):
 
 | Variable | Descripción | Requerido | Ejemplo |
 |----------|-------------|-----------|---------|
@@ -320,7 +320,7 @@ kubectl get pods -A
 | `--extra-vars "target_environment=X"` | Ambiente destino | `dev-local` | `production` |
 | `--extra-vars "register_cluster=true"` | Registrar cluster en ArgoCD | `false` | `true` |
 
-### Variables de group_vars/all.yml
+### Variables de playbooks/group_vars/all.yml
 
 | Variable | Descripción | Default | Opciones |
 |----------|-------------|---------|----------|
@@ -480,10 +480,10 @@ EOF
 
 Repetir para `mi-app-dev.yml`, `mi-app-qa.yml`, `mi-app-staging.yml`, `mi-app-production.yml`.
 
-### Paso 5: Agregar a group_vars/all.yml
+### Paso 5: Agregar a playbooks/group_vars/all.yml
 
 ```yaml
-# automation/ansible/group_vars/all.yml
+# automation/ansible/playbooks/group_vars/all.yml
 applications:
   - name: iumbit
   - name: mi-app
@@ -691,7 +691,7 @@ vagrant destroy -f && EP_WORKERS=true vagrant up && \
 
 # === ON-PREMISE (Production) ===
 # Configurar credenciales primero
-cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_vars/secrets.yml
+cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansible/playbooks/group_vars/secrets.yml
 # Editar secrets.yml con valores reales
 
 # Single-node (default)

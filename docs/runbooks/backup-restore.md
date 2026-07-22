@@ -91,7 +91,7 @@ helm get values cert-manager -n cert-manager > certmanager_values_backup.yaml
 ```bash
 # Backup de inventario y vars
 tar -czf ansible_backup_$(date +%Y%m%d).tar.gz \
-  automation/ansible/group_vars/ \
+  automation/ansible/playbooks/group_vars/ \
   automation/ansible/inventory/ \
   automation/ansible/host_vars/
 

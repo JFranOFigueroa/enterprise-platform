@@ -55,11 +55,14 @@ enterprise-platform/
 │       │   ├── onprem/hosts.yml
 │       │   ├── cloud-digitalocean/
 │       │   └── cloud-aws/
-│       ├── site.yml                         # Orquestador maestro (4 fases)
-│       ├── 01-bootstrap-host.yml
-│       ├── 02-network.yml
-│       ├── 03-cluster.yml
-│       ├── 04-gitops.yml
+│       ├── playbooks/
+│       │   ├── site.yml                    # Orquestador maestro (4 fases)
+│       │   ├── 01-bootstrap-host.yml
+│       │   ├── 02-network.yml
+│       │   ├── 03-cluster.yml
+│       │   ├── 04-gitops.yml
+│       │   └── group_vars/
+│       │       └── all.yml
 │       ├── roles/
 │       │   ├── common/
 │       │   ├── ubuntu/
@@ -72,8 +75,6 @@ enterprise-platform/
 │       │       ├── templates/
 │       │       │   └── application.yaml.j2
 │       │       └── defaults/main.yml
-│       ├── group_vars/
-│       │   └── all.yml
 │       └── host_vars/
 ├── bootstrap/                              # Bootstrap de la plataforma
 │   └── gitops/
@@ -110,11 +111,14 @@ enterprise-platform/
 automation/ansible/
 ├── ansible.cfg
 ├── run-ansible.sh
-├── site.yml
-├── 01-bootstrap-host.yml
-├── 02-network.yml
-├── 03-cluster.yml
-├── 04-gitops.yml
+├── playbooks/
+│   ├── site.yml
+│   ├── 01-bootstrap-host.yml
+│   ├── 02-network.yml
+│   ├── 03-cluster.yml
+│   ├── 04-gitops.yml
+│   └── group_vars/
+│       └── all.yml
 ├── inventory/
 ├── roles/
 │   ├── common/
@@ -194,7 +198,7 @@ spec:
 ```
 run-ansible.sh (detecta target_environment, inyecta project_root)
     ↓
-group_vars/all.yml (define lista de apps + target_environment)
+playbooks/group_vars/all.yml (define lista de apps + target_environment)
     ↓
 gitops role loop sobre applications (loop_var: app_entry)
     ↓
@@ -249,7 +253,7 @@ app_secrets:
 | `project_root` | Path absoluto al repo | Auto-detectado | `run-ansible.sh` via `--extra-vars` |
 | `repo_clone_dest` | Destino del clone en el server | `/opt/enterprise-platform` | `defaults/main.yml` |
 | `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
-| `argocd_mode` | Modo ArgoCD | `local` | `group_vars/all.yml` |
+| `argocd_mode` | Modo ArgoCD | `local` | `playbooks/group_vars/all.yml` |
 
 ### Notas sobre el Template
 

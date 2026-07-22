@@ -27,7 +27,7 @@ Enterprise Platform soporta múltiples ambientes para el ciclo de vida de las ap
 | Variable | Descripción | Default | Fuente |
 |----------|-------------|---------|--------|
 | `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
-| `argocd_mode` | Modo ArgoCD | `local` | `group_vars/all.yml` |
+| `argocd_mode` | Modo ArgoCD | `local` | `playbooks/group_vars/all.yml` |
 
 ```bash
 # Ejemplo: deploy en QA

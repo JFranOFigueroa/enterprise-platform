@@ -91,7 +91,7 @@ enterprise-platform/
 - [x] **Optional Workers:** Default single-node (master-01 only), workers optional via `--workers` flag and `EP_WORKERS=true`
 - [x] **Dual Inventory:** `hosts.yml` (single-node) + `hosts-multi.yml` (multi-node) for local-lab
 - [x] **On-Prem Production Inventory:** `onprem/hosts.yml` (single-node), `onprem/hosts-workers.yml` (multi-node), `onprem/hosts-local.yml` (localhost)
-- [x] **On-Prem Credentials Model:** Variables en `group_vars/secrets.yml` (gitignored) con `secrets.yml.example` como template
+- [x] **On-Prem Credentials Model:** Variables en `playbooks/group_vars/secrets.yml` (gitignored) con `secrets.yml.example` como template
 - [x] **Cert-manager waits generalizados:** `platform-{{ target_environment }}-cert-manager` reemplaza hardcodeado `dev-local`
 - [x] **Cluster registration dinámico:** `cluster-template.yaml.j2` renderiza `cluster-{{ target_environment }}` para ambientes no-dev-local
 - [x] **On-Prem deployment guide:** Sección completa en `docs/deployment-guide.md` con 3 modos (SSH, workers, localhost)
@@ -179,7 +179,7 @@ enterprise-platform/
 ```
 run-ansible.sh (detecta target_environment, inyecta project_root)
     ↓
-group_vars/all.yml (define lista de apps + target_environment default: dev-local)
+playbooks/group_vars/all.yml (define lista de apps + target_environment default: dev-local)
     ↓
 gitops role loop sobre applications (loop_var: app_entry)
     ↓
@@ -214,7 +214,7 @@ values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
 | `project_root` | Path absoluto al repo | Auto-detectado | `run-ansible.sh` via `--extra-vars` |
 | `repo_clone_dest` | Destino del clone en el server | `/opt/enterprise-platform` | `defaults/main.yml` |
 | `target_environment` | Ambiente destino | `dev-local` | `run-ansible.sh` via `--extra-vars` |
-| `argocd_mode` | Modo ArgoCD | `local` | `group_vars/all.yml` |
+| `argocd_mode` | Modo ArgoCD | `local` | `playbooks/group_vars/all.yml` |
 
 ### Archivos de Secrets por Aplicación
 
@@ -232,7 +232,7 @@ values-dev.yaml      →  CHANGE_ME    (gitignored, nunca se commitea)
 1. Crear directorio en `applications/<app-name>/`
 2. Crear Helm chart con la estructura estándar
 3. Crear `app_vars/<app-name>-<environment>.yml` por cada ambiente
-4. Agregar app al listado en `group_vars/all.yml`
+4. Agregar app al listado en `playbooks/group_vars/all.yml`
 5. Hacer `git push`
 6. Ejecutar `./run-ansible.sh` con el ambiente correspondiente
 7. ArgoCD despliega automáticamente
@@ -252,7 +252,7 @@ NUNCA commitear al repositorio:
 - Cloud credentials
 
 Usar: `applications/<app>/app_vars/<app>-<env>.yml` (gitignored) + Ansible injection via helm.parameters.
-Nunca commitear `group_vars/secrets.yml` (también gitignored).
+Nunca commitear `playbooks/group_vars/secrets.yml` (también gitignored).
 
 ---
 

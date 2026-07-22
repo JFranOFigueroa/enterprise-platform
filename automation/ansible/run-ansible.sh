@@ -91,8 +91,8 @@ create_fixed_inventory() {
         "$original_inventory" > "${tmp_inv_dir}/hosts.yml"
 
     # Copy group_vars and host_vars if they exist (Ansible looks for them relative to inventory)
-    if [[ -d "${SCRIPT_DIR}/group_vars" ]]; then
-        cp -r "${SCRIPT_DIR}/group_vars" "${tmp_inv_dir}/"
+    if [[ -d "${SCRIPT_DIR}/playbooks/group_vars" ]]; then
+        cp -r "${SCRIPT_DIR}/playbooks/group_vars" "${tmp_inv_dir}/"
     fi
     if [[ -d "${SCRIPT_DIR}/host_vars" ]]; then
         cp -r "${SCRIPT_DIR}/host_vars" "${tmp_inv_dir}/"
@@ -192,7 +192,7 @@ else
 fi
 
 # Load secrets as extra-vars (highest precedence) if group_vars/secrets.yml exists
-SECRETS_FILE="${SCRIPT_DIR}/group_vars/secrets.yml"
+SECRETS_FILE="${SCRIPT_DIR}/playbooks/group_vars/secrets.yml"
 if [[ -f "$SECRETS_FILE" ]]; then
     echo "[run-ansible.sh] Loading secrets from ${SECRETS_FILE}"
     set -- "${@}" --extra-vars "@${SECRETS_FILE}"

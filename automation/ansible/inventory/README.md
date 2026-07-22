@@ -27,9 +27,9 @@
 | `onprem/hosts-workers.yml` | master-01 + worker-01 (+ worker-02) | `secrets.yml` | Multi-node via SSH with `--workers` |
 | `onprem/hosts-local.yml` | localhost | `secrets.yml` (node_ip only) | Deploy on the same server where repo is cloned |
 
-**On-Premise credentials** are configured in `group_vars/secrets.yml` (gitignored):
+**On-Premise credentials** are configured in `playbooks/group_vars/secrets.yml` (gitignored):
 ```bash
-cp group_vars/secrets.yml.example group_vars/secrets.yml
+cp playbooks/group_vars/secrets.yml.example playbooks/group_vars/secrets.yml
 # Edit with your values
 ```
 
