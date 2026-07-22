@@ -33,21 +33,27 @@ spec:
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           startupProbe:
-            httpGet:
-              path: /health/ready
-              port: 9990
+            exec:
+              command:
+                - curl
+                - -fsS
+                - http://127.0.0.1:9990/health/ready
             failureThreshold: 30
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /health/ready
-              port: 9990
+            exec:
+              command:
+                - curl
+                - -fsS
+                - http://127.0.0.1:9990/health/ready
             periodSeconds: 15
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 9990
+            exec:
+              command:
+                - curl
+                - -fsS
+                - http://127.0.0.1:9990/health/ready
             periodSeconds: 5
             failureThreshold: 10
             initialDelaySeconds: 30
