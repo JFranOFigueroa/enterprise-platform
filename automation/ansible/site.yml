@@ -1,6 +1,6 @@
 ---
 # Enterprise Platform - Bootstrap Master Playbook
-# Execute: ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+# Execute: ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 #
 # Phases:
 #   1. Bootstrap host (common setup, OS-specific configuration)

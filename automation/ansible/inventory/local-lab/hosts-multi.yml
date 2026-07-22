@@ -3,7 +3,7 @@
 # Environment:   local-lab (multi-node)
 # Provisioner:   Vagrant (VMware Desktop)
 # Network:       192.168.56.0/24 (inter-VM), port forwarding for host access
-# Ansible:       ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+# Ansible:       ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 #
 # This inventory includes worker nodes for multi-node clusters.
 # Use when EP_WORKERS=true vagrant up has been run.

@@ -4,13 +4,13 @@
 
 | Inventory | Environment | Provisioner | Command |
 |-----------|-------------|-------------|---------|
-| local-lab | Desarrollo local (single-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml` |
-| local-lab (multi) | Desarrollo local (multi-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers` |
-| onprem | On-Premise (single-node) | Existing servers | `./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml` |
-| onprem (multi) | On-Premise (multi-node) | Existing servers | `./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml --workers` |
-| onprem (local) | On-Premise (localhost) | Same server | `./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml` |
-| cloud-digitalocean | DigitalOcean | Terraform | `./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml` |
-| cloud-aws | AWS EC2 | Terraform | `./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml` |
+| local-lab | Desarrollo local (single-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml` |
+| local-lab (multi) | Desarrollo local (multi-node) | Vagrant + VMware | `./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers` |
+| onprem | On-Premise (single-node) | Existing servers | `./run-ansible.sh -i inventory/onprem/hosts.yml site.yml` |
+| onprem (multi) | On-Premise (multi-node) | Existing servers | `./run-ansible.sh -i inventory/onprem/hosts.yml site.yml --workers` |
+| onprem (local) | On-Premise (localhost) | Same server | `./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml` |
+| cloud-digitalocean | DigitalOcean | Terraform | `./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml site.yml` |
+| cloud-aws | AWS EC2 | Terraform | `./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml` |
 
 ### Local Lab Inventories
 

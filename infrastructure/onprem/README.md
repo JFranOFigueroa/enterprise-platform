@@ -18,7 +18,7 @@ Use `cloud-init/user-data.yaml` when provisioning new servers.
 ### Option 3: Ansible (Recommended)
 ```bash
 cd automation/ansible
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml
 ```
 
 ## Requirements

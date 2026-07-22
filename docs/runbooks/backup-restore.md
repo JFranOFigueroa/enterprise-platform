@@ -184,7 +184,7 @@ helm upgrade cert-manager jetstack/cert-manager \
 ```bash
 # Aplicar Applications generadas por Ansible
 cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --tags gitops
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --tags gitops
 ```
 
 ---
@@ -212,7 +212,7 @@ vagrant up
 
 # 2. Ejecutar Ansible
 cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # 3. Restore de PostgreSQL (ajustar nombre y namespace)
 APP_NAME="mi-app"

@@ -46,10 +46,10 @@ EP_WORKERS=true vagrant up    # Create all 3 VMs
 ```bash
 # Single-node (default):
 cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Multi-node (with workers):
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 ```
 
 ## Network

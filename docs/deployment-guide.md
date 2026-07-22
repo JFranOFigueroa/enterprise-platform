@@ -93,7 +93,7 @@ vagrant up
 
 # 2. Ejecutar Ansible (bootstrap + cluster + GitOps)
 cd ../../..
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 ```
 
 **Resultado esperado:**
@@ -112,7 +112,7 @@ EP_WORKERS=true vagrant up
 
 # 2. Ejecutar Ansible con --workers
 cd ../../..
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 ```
 
 **Resultado esperado:**
@@ -125,10 +125,10 @@ cd ../../..
 
 ```bash
 # Single-node
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Multi-node
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 ```
 
 ### Opción D: Reconstruir desde cero
@@ -136,11 +136,11 @@ cd ../../..
 ```bash
 # Single-node
 vagrant destroy -f && vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Multi-node
 vagrant destroy -f && EP_WORKERS=true vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 ```
 
 ### Acceso a la plataforma
@@ -194,12 +194,12 @@ cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_va
 #   onprem_user, onprem_master_host, onprem_master_node_ip, onprem_private_key
 
 # 3. Ejecutar (single-node, default)
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml \
   --extra-vars "target_environment=production"
 
 # 3b. O con workers
 # Editar secrets.yml: descomentar y configurar onprem_worker_01_host, etc.
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml \
   --extra-vars "target_environment=production" --workers
 ```
 
@@ -218,7 +218,7 @@ cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_va
 # Editar secrets.yml: solo onprem_master_node_ip
 
 # 4. Ejecutar contra localhost
-./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml \
   --extra-vars "target_environment=production"
 ```
 
@@ -277,11 +277,11 @@ terraform init && terraform apply
 
 ```bash
 # Ejemplo: QA
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=qa"
 
 # Ejemplo: Production
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=production"
 ```
 
@@ -289,7 +289,7 @@ terraform init && terraform apply
 
 ```bash
 # Desde el management cluster, registrar el cluster remoto
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=production" \
   --extra-vars "register_cluster=true"
 ```
@@ -501,7 +501,7 @@ git push
 
 ```bash
 # Ejecutar Ansible para generar y aplicar el ArgoCD Application
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Verificar que la app aparece en ArgoCD
 kubectl get applications -n gitops
@@ -644,7 +644,7 @@ kubectl delete ingress <orphan-ingress-name> -n <namespace>
 kubectl delete application <app-name> -n gitops
 
 # 4. Re-ejecutar Ansible
-cd /opt/enterprise-platform && ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+cd /opt/enterprise-platform && ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 ```
 
 **Prevención:** El template `application.yaml.j2` usa `releaseName: {{ app_config.name }}` para asegurar un nombre de Helm release consistente en todos los ambientes.
@@ -667,26 +667,26 @@ kubectl patch application <app-name> -n gitops \
 # === DEV LOCAL (Single-Node) ===
 # Bootstrap completo
 vagrant destroy -f && vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Solo Ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # === DEV LOCAL (Multi-Node) ===
 # Bootstrap completo
 vagrant destroy -f && EP_WORKERS=true vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 
 # Solo Ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 
 # === CLOUD ===
 # QA
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=qa"
 
 # Production
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=production"
 
 # === ON-PREMISE (Production) ===
@@ -695,15 +695,15 @@ cp automation/ansible/group_vars/secrets.yml.example automation/ansible/group_va
 # Editar secrets.yml con valores reales
 
 # Single-node (default)
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml \
   --extra-vars "target_environment=production"
 
 # Multi-node (con workers)
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml \
   --extra-vars "target_environment=production" --workers
 
 # Localhost (repo en el mismo servidor)
-./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml \
   --extra-vars "target_environment=production"
 
 # === VERIFICACIÓN ===

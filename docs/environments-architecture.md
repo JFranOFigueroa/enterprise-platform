@@ -31,7 +31,7 @@ Enterprise Platform soporta múltiples ambientes para el ciclo de vida de las ap
 
 ```bash
 # Ejemplo: deploy en QA
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=qa"
 ```
 
@@ -128,7 +128,7 @@ app_secrets:
 
 5. **Ejecutar Ansible** con el ambiente:
    ```bash
-   ./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+   ./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
      --extra-vars "target_environment=qa"
    ```
 

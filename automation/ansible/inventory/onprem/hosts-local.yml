@@ -2,7 +2,7 @@
 # Enterprise Platform - On-Premise Inventory (Localhost)
 # Environment:   onprem (localhost)
 # Provisioner:   Same server (repo cloned on the target server)
-# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts-local.yml playbooks/site.yml
+# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml
 #
 # Use this inventory when the repo is cloned directly on the target server
 # and Ansible runs locally (no SSH). Requires ansible_connection=local.

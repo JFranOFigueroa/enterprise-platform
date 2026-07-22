@@ -2,7 +2,7 @@
 # Enterprise Platform - On-Premise Inventory (Multi-Node)
 # Environment:   onprem (multi-node)
 # Provisioner:   Existing VPS / Physical servers
-# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml --workers
+# Ansible:       ./run-ansible.sh -i inventory/onprem/hosts.yml site.yml --workers
 #
 # This inventory includes worker nodes for multi-node clusters.
 # Default is single-node (hosts.yml). Use --workers flag to activate this inventory.

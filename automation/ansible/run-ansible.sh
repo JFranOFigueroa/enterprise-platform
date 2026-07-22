@@ -5,9 +5,9 @@
 # Portable wrapper that ensures ansible.cfg is loaded from the project directory.
 #
 # Usage:
-#   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
-#   ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
-#   ./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml
+#   ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
+#   ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
+#   ./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml site.yml
 #
 # Options:
 #   --workers    Use multi-node inventory (master + worker-01 + worker-02)

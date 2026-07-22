@@ -150,7 +150,7 @@ cd automation/ansible
 # Editar inventory/local-lab/hosts.yml
 
 # Ejecutar playbook de agentes
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/03-services.yml --tags rke2
+./run-ansible.sh -i inventory/local-lab/hosts.yml 03-cluster.yml --tags rke2
 ```
 
 #### Manualmente

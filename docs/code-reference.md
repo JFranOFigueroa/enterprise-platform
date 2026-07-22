@@ -55,12 +55,11 @@ enterprise-platform/
 │       │   ├── onprem/hosts.yml
 │       │   ├── cloud-digitalocean/
 │       │   └── cloud-aws/
-│       ├── playbooks/
-│       │   ├── site.yml                    # Orquestador maestro (4 fases)
-│       │   ├── 01-bootstrap-host.yml
-│       │   ├── 02-network.yml
-│       │   ├── 03-cluster.yml
-│       │   └── 04-gitops.yml
+│       ├── site.yml                         # Orquestador maestro (4 fases)
+│       ├── 01-bootstrap-host.yml
+│       ├── 02-network.yml
+│       ├── 03-cluster.yml
+│       ├── 04-gitops.yml
 │       ├── roles/
 │       │   ├── common/
 │       │   ├── ubuntu/
@@ -111,13 +110,12 @@ enterprise-platform/
 automation/ansible/
 ├── ansible.cfg
 ├── run-ansible.sh
+├── site.yml
+├── 01-bootstrap-host.yml
+├── 02-network.yml
+├── 03-cluster.yml
+├── 04-gitops.yml
 ├── inventory/
-├── playbooks/
-│   ├── site.yml
-│   ├── 01-bootstrap-host.yml
-│   ├── 02-network.yml
-│   ├── 03-cluster.yml
-│   └── 04-gitops.yml
 ├── roles/
 │   ├── common/
 │   ├── ubuntu/
@@ -433,18 +431,18 @@ Para exponer un nuevo servicio via Ingress:
 # === DEV LOCAL ===
 # Bootstrap completo
 vagrant destroy -f && vagrant up && \
-  ./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+  ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # Solo Ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # === CLOUD ===
 # QA
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=qa"
 
 # Production
-./run-ansible.sh -i inventory/cloud-aws/hosts.yml playbooks/site.yml \
+./run-ansible.sh -i inventory/cloud-aws/hosts.yml site.yml \
   --extra-vars "target_environment=production"
 
 # === VERIFICACIÓN ===

@@ -19,7 +19,7 @@ vagrant up
 
 # 2. Bootstrap platform
 cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 
 # 3. Access ArgoCD UI
 # http://localhost:30080
@@ -34,7 +34,7 @@ EP_WORKERS=true vagrant up
 
 # 2. Bootstrap platform
 cd automation/ansible
-./run-ansible.sh -i inventory/local-lab/hosts.yml playbooks/site.yml --workers
+./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 
 # 3. Access ArgoCD UI
 # http://localhost:30080
@@ -49,7 +49,7 @@ cd infrastructure/onprem/scripts
 
 # 2. Bootstrap platform
 cd automation/ansible
-./run-ansible.sh -i inventory/onprem/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/onprem/hosts.yml site.yml
 ```
 
 ### Cloud (DigitalOcean/AWS)
@@ -61,7 +61,7 @@ terraform init && terraform apply
 
 # 2. Bootstrap platform
 cd automation/ansible
-./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml playbooks/site.yml
+./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml site.yml
 ```
 
 ## Repository Structure
