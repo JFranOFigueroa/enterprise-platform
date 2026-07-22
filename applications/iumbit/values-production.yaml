@@ -138,17 +138,6 @@ ingress:
           serviceName: backend
           servicePort: 8080
 
-    - host: iumbit.example.com
-      paths:
-        - path: /
-          pathType: Prefix
-          serviceName: frontend
-          servicePort: 8080
-        - path: /check-it-1.0.0-dev.17
-          pathType: Prefix
-          serviceName: backend
-          servicePort: 8080
-
     - host: bta.iumbit.com.mx
       paths:
         - path: /
@@ -162,5 +151,4 @@ ingress:
   tls:
     - secretName: iumbit-tls
       hosts:
-        - iumbit.example.com
         - bta.iumbit.com.mx
