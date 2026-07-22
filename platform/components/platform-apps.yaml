@@ -31,12 +31,14 @@ spec:
                   helmRepoURL: https://charts.jetstack.io
                   valuesPath: platform/certificates/cert-manager-values.yaml
                   namespace: cert-manager
+                  releaseName: cert-manager
                 - component: kube-prometheus-stack
                   chart: kube-prometheus-stack
                   chartVersion: 72.5.1
                   helmRepoURL: https://prometheus-community.github.io/helm-charts
                   valuesPath: platform/monitoring/kube-prometheus-stack-values.yaml
                   namespace: platform-monitoring
+                  releaseName: kube-prometheus-stack
                 - component: loki
                   chart: loki
                   chartVersion: 6.24.0
@@ -57,6 +59,7 @@ spec:
                   helmRepoURL: https://kubernetes-sigs.github.io/metrics-server/
                   valuesPath: platform/monitoring/metrics-server-values.yaml
                   namespace: kube-system
+                  releaseName: metrics-server
   template:
     metadata:
       name: "platform-{{ .name }}-{{ .component }}"
