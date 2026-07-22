@@ -26,7 +26,7 @@ backend:
   enabled: true
   image:
     repository: nitesoftmx/iumbit-wildfly-app
-    tag: "v1.0.0-dev.16"
+    tag: "v1.0.0-dev.17"
   port: 8080
   replicas: 1
   javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
@@ -65,7 +65,7 @@ frontend:
   enabled: true
   image:
     repository: nitesoftmx/iumbit-nginx-web
-    tag: "v1.0.0-dev.3"
+    tag: "v1.0.0-dev.4"
   port: 8080
   replicas: 1
   vueAppApiUrl: "/check-it-1.0.0-dev.17/api/v1/"
