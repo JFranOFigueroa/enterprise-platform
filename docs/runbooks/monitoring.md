@@ -323,6 +323,9 @@ curl http://localhost:9090/api/v1/query?query=up
 # Verificar Promtail
 kubectl logs daemonset/promtail -n platform-logging | grep -i error
 
+# Verificar servicio Loki (debe llamarse "loki")
+kubectl get svc -n platform-logging
+
 # Verificar conexión a Loki
 kubectl port-forward svc/loki 3100:3100 -n platform-logging
 curl http://localhost:3100/ready
@@ -330,6 +333,8 @@ curl http://localhost:3100/ready
 # Verificar config de Promtail
 kubectl get configmap promtail-config -n platform-logging -o yaml
 ```
+
+**Nota:** El servicio Loki se llama `loki` (no `platform-production-loki`) debido al `releaseName: loki` en el ApplicationSet. Si Promtail no puede conectar, verificar que el nombre del servicio es correcto.
 
 ---
 

@@ -165,7 +165,7 @@ Los ResourceQuota y LimitRange se despliegan en `apps-production` para proteger 
 
 ### Matrix Generator
 
-El `platform-apps.yaml` usa un matrix generator para desplegar componentes de plataforma a todos los clusters registrados:
+El `platform-apps.yaml` usa un matrix generator para desplegar componentes de plataforma a todos los clusters registrados. Cada componente tiene un `releaseName` explícito para nombres de servicios predecibles:
 
 ```yaml
 # platform/components/platform-apps.yaml
@@ -178,10 +178,16 @@ generators:
           server: https://dev-cluster.example.com
       components:
         - name: cert-manager
+          releaseName: cert-manager
         - name: kube-prometheus-stack
+          releaseName: kube-prometheus-stack
         - name: loki
+          releaseName: loki
         - name: promtail
+          releaseName: promtail
 ```
+
+**Nota:** El `releaseName` controla el nombre del Helm release y los recursos de Kubernetes. Por ejemplo, con `releaseName: loki`, el servicio se llama `loki` (no `platform-dev-local-loki`), lo que permite que Promtail conecte correctamente via `http://loki.platform-logging.svc.cluster.local:3100`.
 
 ### AppProject
 

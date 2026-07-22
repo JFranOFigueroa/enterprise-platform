@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-07-16
+> Última actualización: 2026-07-22
 
 ---
 
@@ -109,6 +109,9 @@ enterprise-platform/
 - [x] **ServiceMonitor Loki fix:** namespace selector corregido de `logging` a `platform-logging`
 - [x] **ResourceQuota increase:** limits.cpu=6, limits.memory=8Gi, pods=12
 - [x] **LimitRange increase:** max memory=2Gi (para backend 1.5Gi)
+- [x] **ApplicationSet releaseName:** Todos los componentes tienen `releaseName` explícito (cert-manager, kube-prometheus-stack, loki, promtail, metrics-server) para nombres de servicios predecibles
+- [x] **Promtail readiness probe:** timeout incrementado de 1s a 3s para evitar falsos negativos
+- [x] **Loki service name fix:** Con `releaseName: loki`, el servicio se llama `loki` (no `platform-production-loki`), permitiendo que Promtail conecte correctamente
 
 **Pendiente:**
 - [ ] Tests de humo

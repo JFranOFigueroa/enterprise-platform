@@ -1,7 +1,7 @@
 # Enterprise Platform - Code Reference
 
 > Referencia técnica completa de todo el código, configuraciones e infraestructura del proyecto.
-> Última actualización: 2026-07-16
+> Última actualización: 2026-07-22
 
 ---
 
@@ -335,13 +335,17 @@ El template genera Applications con el patrón:
 platform-<cluster-name>-<component>
 ```
 
-| Cluster | Componente | Application Name |
-|---------|-----------|------------------|
-| dev-local | cert-manager | platform-dev-local-cert-manager |
-| dev-local | kube-prometheus-stack | platform-dev-local-kube-prometheus-stack |
-| dev-local | loki | platform-dev-local-loki |
-| dev-local | promtail | platform-dev-local-promtail |
-| dev-local | metrics-server | platform-dev-local-metrics-server |
+Cada componente tiene un `releaseName` explícito que controla el nombre del Helm release y los recursos de Kubernetes creados:
+
+| Cluster | Componente | Application Name | Helm Release Name |
+|---------|-----------|------------------|-------------------|
+| dev-local | cert-manager | platform-dev-local-cert-manager | cert-manager |
+| dev-local | kube-prometheus-stack | platform-dev-local-kube-prometheus-stack | kube-prometheus-stack |
+| dev-local | loki | platform-dev-local-loki | loki |
+| dev-local | promtail | platform-dev-local-promtail | promtail |
+| dev-local | metrics-server | platform-dev-local-metrics-server | metrics-server |
+
+**Por qué `releaseName` explícito:** Sin `releaseName`, el nombre del Helm release es el nombre de la Application (e.g. `platform-dev-local-loki`). Esto crea servicios con nombres como `platform-dev-local-loki` en lugar de `loki`, lo que rompe referencias internas (e.g. Promtail apunta a `http://loki.platform-logging.svc.cluster.local:3100`). El `releaseName` explícito asegura nombres de servicios predecibles y consistentes.
 
 **Por qué `component` en lugar de `name`:** El matrix generator fusiona variables de ambos generators. Si ambos usan `name`, el clusters generator sobreescribe el list generator (resuelve a `dev-local` en lugar de `cert-manager`). Renombrar la clave del list generator a `component` evita la colisión.
 

@@ -244,6 +244,7 @@ argocd app get <nombre> --refresh
 - Promtail no está corriendo
 - Configuración incorrecta
 - Loki sin almacenamiento
+- Servicio Loki no alcanzable (verificar nombre del servicio)
 
 **Diagnóstico:**
 ```bash
@@ -253,7 +254,13 @@ kubectl logs -f daemonset/promtail -n platform-logging
 
 # Ver Loki
 kubectl get pods -n platform-logging | grep loki
-kubectl logs -f deployment/loki -n platform-logging
+kubectl logs -f statefulset/loki -n platform-logging
+
+# Verificar servicio Loki (debe llamarse "loki", no "platform-production-loki")
+kubectl get svc -n platform-logging
+
+# Verificar conexión desde Promtail
+kubectl logs -n platform-logging -l app.kubernetes.io/name=promtail | grep -i "error\|dial tcp"
 ```
 
 **Solución:**
@@ -264,6 +271,51 @@ kubectl rollout restart daemonset/promtail -n platform-logging
 # Verificar conexión Loki
 kubectl port-forward svc/loki 3100:3100 -n platform-logging
 curl http://localhost:3100/ready
+```
+
+---
+
+### 8b. Promtail Readiness Probe Fallando
+
+**Causa:** El readiness probe de Promtail tiene timeout muy corto (1s) y Promtail está sobrecargado reintentando conexiones fallidas a Loki.
+
+**Síntomas:**
+- Pod Promtail en estado `Running` pero `0/1 Ready`
+- Eventos: `Readiness probe failed: Get "http://...:3101/ready": context deadline exceeded`
+- Alto número de fallos (>1000 en pocas horas)
+
+**Diagnóstico:**
+```bash
+# Ver eventos del pod
+kubectl describe pod -n platform-logging -l app.kubernetes.io/name=promtail
+
+# Verificar si Loki es alcanzable
+kubectl exec -n platform-logging <promtail-pod> -- wget -qO- http://loki.platform-logging.svc.cluster.local:3100/ready
+
+# Verificar logs de error de conexión
+kubectl logs -n platform-logging -l app.kubernetes.io/name=promtail | grep -i "error\|dial tcp\|no such host"
+```
+
+**Solución:**
+```bash
+# Verificar que el servicio Loki existe y se llama "loki"
+kubectl get svc -n platform-logging
+
+# Si el servicio se llama diferente (e.g. platform-production-loki),
+# significa que falta releaseName en el ApplicationSet
+# Solución: Agregar releaseName: loki en platform/components/platform-apps.yaml
+
+# Verificar que el readiness probe tiene timeout adecuado (>=3s)
+kubectl get daemonset -n platform-logging promtail -o yaml | grep -A 10 readinessProbe
+```
+
+**Prevención:** El `platform/logging/promtail-values.yaml` debe tener:
+```yaml
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http-metrics
+  timeoutSeconds: 3
 ```
 
 ---

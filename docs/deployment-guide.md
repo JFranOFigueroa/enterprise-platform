@@ -1,7 +1,7 @@
 # Enterprise Platform - Deployment Guide
 
 > Guía completa para desplegar la plataforma y aplicaciones en todos los ambientes.
-> Última actualización: 2026-07-16
+> Última actualización: 2026-07-22
 
 ---
 
@@ -224,8 +224,9 @@ cp automation/ansible/playbooks/group_vars/secrets.yml.example automation/ansibl
 - Platform components desplegados:
   - cert-manager v1.17.1 (ClusterIssuers Ready)
   - Monitoring: Prometheus (200m/512Mi req), Grafana (100m/256Mi req, root_url=https://gfa.iumbit.com.mx)
-  - Logging: Loki (SingleBinary, 10Gi persistence), Promtail
+  - Logging: Loki (SingleBinary, 10Gi persistence, releaseName=loki), Promtail (readinessProbe timeout=3s)
   - NGINX Ingress Controller (hostPort 80/443)
+  - ApplicationSet con releaseName explícito para todos los componentes
 - Resource protection:
   - ResourceQuota: limits.cpu=6, limits.memory=8Gi, pods=12
   - LimitRange: max cpu=1, max memory=2Gi
@@ -668,6 +669,40 @@ cd /opt/enterprise-platform && ./run-ansible.sh -i inventory/local-lab/hosts.yml
 ```
 
 **Prevención:** El template `application.yaml.j2` usa `releaseName: {{ app_config.name }}` para asegurar un nombre de Helm release consistente en todos los ambientes.
+
+### Cambiar `releaseName` en un Cluster Existente
+
+Cuando se agrega o cambia `releaseName` en el ApplicationSet, Helm trata el nuevo release como uno diferente. Los recursos antiguos quedan huérfanos y los nuevos se crean desde cero.
+
+**Advertencia:** Esto causa **pérdida de datos** en StatefulSets (Prometheus, Grafana, Loki, Alertmanager) ya que los PVCs antiguos no se migran automáticamente.
+
+**Pasos para migrar:**
+
+```bash
+# 1. Push de cambios a Git
+git add platform/components/platform-apps.yaml
+git commit -m "fix(platform): add releaseName to ApplicationSet"
+git push
+
+# 2. Eliminar Applications antiguas de ArgoCD
+kubectl delete application platform-<cluster>-loki -n gitops
+kubectl delete application platform-<cluster>-promtail -n gitops
+
+# 3. Eliminar recursos Kubernetes huérfanos
+kubectl delete daemonset platform-<cluster>-promtail -n platform-logging
+kubectl delete statefulset platform-<cluster>-loki -n platform-logging
+kubectl delete svc platform-<cluster>-loki -n platform-logging
+kubectl delete pvc data-platform-<cluster>-loki-0 -n platform-logging
+
+# 4. Esperar a que ArgoCD recree los recursos con los nuevos nombres
+kubectl get pods -n platform-logging
+kubectl get svc -n platform-logging
+
+# 5. Verificar que Promtail conecta a Loki
+kubectl logs -n platform-logging -l app.kubernetes.io/name=promtail --tail=20
+```
+
+**Nota:** Para clusters nuevos (fresh deployment), no se requiere migración — el `releaseName` se aplica directamente.
 
 ### ArgoCD CLI no está instalado
 
