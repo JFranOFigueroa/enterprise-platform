@@ -30,13 +30,13 @@ grafana:
       cert-manager.io/cluster-issuer: letsencrypt-production
     hosts:
       - grafana.localhost
-      - gfana.iumbit.com.mx
+      - gfa.iumbit.com.mx
     path: /
     pathType: Prefix
     tls:
       - secretName: grafana-tls
         hosts:
-          - gfana.iumbit.com.mx
+          - gfa.iumbit.com.mx
 
 alertmanager:
   enabled: true
