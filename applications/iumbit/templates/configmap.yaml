@@ -11,6 +11,7 @@ data:
   DB_NAME: {{ .Values.postgresql.auth.database | quote }}
   DB_URL: {{ .Values.config.dbUrl | quote }}
   CHECKIT_FRONT_REGISTER_VIEW: {{ .Values.config.checkitFrontRegisterView | quote }}
+  JAVA_OPTS: {{ .Values.backend.javaOpts | default "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m" | quote }}
   VUE_APP_API_URL: {{ .Values.frontend.vueAppApiUrl | default "/check-it-1.0.0-dev.16/api/v1/" | quote }}
   VUE_CLI_TEST: {{ .Values.frontend.vueCliTest | default "true" | quote }}
   VUE_APP_GOOGLE_CLIENT_ID: {{ .Values.frontend.vueAppGoogleClientId | default "" | quote }}

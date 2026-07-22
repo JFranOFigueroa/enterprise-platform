@@ -28,14 +28,15 @@ backend:
     repository: nitesoftmx/iumbit-wildfly-app
     tag: "v1.0.0-dev.16"
   port: 8080
-  replicas: 2 
+  replicas: 2
+  javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
   resources:
     requests:
       cpu: 250m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       cpu: "1"
-      memory: 512Mi
+      memory: 1Gi
   hpa:
     enabled: true
     minReplicas: 1
