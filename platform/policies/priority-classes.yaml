@@ -6,20 +6,21 @@
 # When the VPS runs out of resources, Kubernetes evicts pods in this order:
 #   1. app-low (IUMBIT and user apps) - first to be evicted
 #   2. platform-high (ArgoCD, cert-manager, monitoring) - protected
-#   3. system-critical (kube-system, etcd, API server) - never evicted
+#   3. platform-critical (ArgoCD, cert-manager, monitoring) - highly protected
+#   4. system-critical (built-in: kube-system, etcd, API server) - never evicted
 # =============================================================================
 
 ---
-# Priority: system-critical (highest)
-# Protects: kube-system pods, etcd, API server, scheduler, controller manager
+# Priority: platform-critical (highest custom)
+# Protects: ArgoCD, cert-manager, monitoring stack, ingress controller
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
-  name: system-critical
+  name: platform-critical
 value: 1000000
 globalDefault: false
 preemptionPolicy: PreemptLowerPriority
-description: "Maximum priority for Kubernetes system components"
+description: "Maximum priority for platform infrastructure components"
 
 ---
 # Priority: platform-high (medium)

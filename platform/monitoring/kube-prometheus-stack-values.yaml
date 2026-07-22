@@ -23,6 +23,9 @@ grafana:
   persistence:
     enabled: true
     size: 5Gi
+  grafana.ini:
+    server:
+      root_url: "https://gfa.iumbit.com.mx"
   ingress:
     enabled: true
     ingressClassName: nginx
@@ -30,7 +33,6 @@ grafana:
       cert-manager.io/cluster-issuer: letsencrypt-production
     hosts:
       - gfa.iumbit.com.mx
-      - grafana.localhost
     path: /
     pathType: Prefix
     tls:

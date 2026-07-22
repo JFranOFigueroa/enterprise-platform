@@ -1,4 +1,5 @@
 # Enterprise Platform - Loki Values
+deploymentMode: SingleBinary
 loki:
   auth_enabled: false
   storage:
@@ -8,10 +9,10 @@ loki:
       directory: /loki/storage
   commonConfig:
     replication_factor: 1
-  schema_config:
+  schemaConfig:
     configs:
       - from: "2024-01-01"
-        store: filesystem
+        store: tsdb
         object_store: filesystem
         schema: v13
         index:
