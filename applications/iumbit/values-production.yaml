@@ -28,7 +28,7 @@ backend:
     repository: nitesoftmx/iumbit-wildfly-app
     tag: "v1.0.0-dev.16"
   port: 8080
-  replicas: 2
+  replicas: 1
   javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
   resources:
     requests:
@@ -36,13 +36,13 @@ backend:
       memory: 512Mi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 1.5Gi
   hpa:
     enabled: true
     minReplicas: 1
     maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 90
     behavior:
       scaleDown:
         stabilizationWindowSeconds: 300
@@ -67,7 +67,7 @@ frontend:
     repository: nitesoftmx/iumbit-nginx-web
     tag: "v1.0.0-dev.3"
   port: 8080
-  replicas: 2
+  replicas: 1
   vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
   vueCliTest: "true"
   vueAppGoogleClientId: "CHANGE_ME"
@@ -118,7 +118,7 @@ secrets:
 config:
   serverPort: "8080"
   dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
-  checkitFrontRegisterView: "https://iumbit.example.com/register"
+  checkitFrontRegisterView: "https://bta.iumbit.com.mx/register"
 
 ingress:
   enabled: true
@@ -148,7 +148,19 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
+
+    - host: bta.iumbit.com.mx
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.16
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080
   tls:
     - secretName: iumbit-tls
       hosts:
         - iumbit.example.com
+        - bta.iumbit.com.mx
