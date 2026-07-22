@@ -148,27 +148,17 @@ vagrant destroy -f && EP_WORKERS=true vagrant up && \
 | Servicio | URL | Método | Credenciales |
 |----------|-----|--------|-------------|
 | ArgoCD UI | http://localhost:30080 | NodePort | admin / (ver abajo) |
-| Grafana | http://localhost:3000 | Port-Forward | admin / admin |
-| Prometheus | http://localhost:9090 | Port-Forward | Sin auth |
-| Alertmanager | http://localhost:9093 | Port-Forward | Sin auth |
+| Grafana | http://grafana.localhost | Ingress | admin / admin |
+| Prometheus | http://prometheus.localhost | Ingress | Sin auth |
+| Alertmanager | http://alertmanager.localhost | Ingress | Sin auth |
 | IUMBIT Frontend | http://iumbit-dev.local:8080 | Ingress | - |
 | IUMBIT Backend | http://iumbit-dev.local:8080/check-it-1.0.0-dev.16/ | Ingress | - |
 
-**Iniciar servicios de monitoring:**
+**Configurar DNS local (agregar a /etc/hosts):**
 ```bash
-# Opción 1: Script helper (todos los servicios)
-./tools/cli/platform-access.sh
-
-# Opción 2: Port-forward manual por servicio
-kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n platform-monitoring
-kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n platform-monitoring
-kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n platform-monitoring
-```
-
-**Configurar DNS local para IUMBIT:**
-```bash
-# Agregar a /etc/hosts (Linux/Mac) o C:\Windows\System32\drivers\etc\hosts (Windows)
-192.168.0.101  iumbit-dev.local
+# Linux/Mac: /etc/hosts
+# Windows: C:\Windows\System32\drivers\etc\hosts
+192.168.0.101  iumbit-dev.local grafana.localhost prometheus.localhost alertmanager.localhost
 ```
 
 **Obtener password de ArgoCD:**

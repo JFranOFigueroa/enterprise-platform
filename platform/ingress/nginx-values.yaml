@@ -3,6 +3,11 @@ controller:
   replicaCount: 2
   service:
     type: NodePort
+  hostPort:
+    enabled: true
+    ports:
+      http: 80
+      https: 443
   config:
     use-forwarded-headers: "true"
     ssl-protocols: "TLSv1.2 TLSv1.3"

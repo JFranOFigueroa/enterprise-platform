@@ -126,6 +126,17 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt-production
   hosts:
+    - host: localhost
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.16
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080
+
     - host: iumbit.example.com
       paths:
         - path: /

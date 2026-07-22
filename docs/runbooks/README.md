@@ -36,27 +36,21 @@ http://localhost:30080
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-### Servicios de Monitoring (Port-Forward)
+### Servicios de Monitoring (Ingress)
 
-> **Nota:** En dev-local, los servicios de plataforma se acceden via port-forward.
-> Es el patrón estándar de Kubernetes para desarrollo local.
+> **Nota:** Los servicios de monitoring se acceden via Ingress con dominios localhost.
+> Configurar DNS local en `/etc/hosts` para acceder desde tu máquina.
 
 ```bash
-# Abrir terminales separadas para cada servicio:
-
-# Grafana
-kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n platform-monitoring
-# → http://localhost:3000
-# → Usuario: admin / Password: admin
-
-# Prometheus
-kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n platform-monitoring
-# → http://localhost:9090
-
-# Alertmanager
-kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n platform-monitoring
-# → http://localhost:9093
+# Agregar a /etc/hosts (Linux/Mac) o C:\Windows\System32\drivers\etc\hosts (Windows)
+192.168.0.101  grafana.localhost prometheus.localhost alertmanager.localhost
 ```
+
+| Servicio | URL | Credenciales |
+|----------|-----|--------------|
+| Grafana | http://grafana.localhost | admin / admin |
+| Prometheus | http://prometheus.localhost | Sin auth |
+| Alertmanager | http://alertmanager.localhost | Sin auth |
 
 ### Acceso a Servicios (usar script helper)
 ```bash
