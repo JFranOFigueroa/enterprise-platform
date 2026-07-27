@@ -35,7 +35,7 @@ backend:
       cpu: 250m
       memory: 512Mi
     limits:
-      cpu: "1"
+      cpu: 800m #"1"
       memory: 1.5Gi
   hpa:
     enabled: true
@@ -75,11 +75,11 @@ frontend:
   vueAppMicrosoftTenantId: "common"
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m #100
+      memory: 64Mi #128
     limits:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 250m #500
+      memory: 128Mi #256
   hpa:
     enabled: true
     minReplicas: 1
