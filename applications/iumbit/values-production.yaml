@@ -16,11 +16,11 @@ postgresql:
       storageClassName: local-path
     resources:
       requests:
-        cpu: 250m
-        memory: 512Mi
+        cpu: 100m #250m
+        memory: 128Mi #512Mi
       limits:
-        cpu: "1"
-        memory: 1Gi
+        cpu: 250m #"1"
+        memory: 512Mi #1Gi
 
 backend:
   enabled: true
