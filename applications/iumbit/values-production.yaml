@@ -133,7 +133,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /api
+        - path: /check-it-1.0.0-dev.17
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
@@ -144,7 +144,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /api
+        - path: /check-it-1.0.0-dev.17
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
