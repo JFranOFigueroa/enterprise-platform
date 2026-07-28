@@ -4,6 +4,8 @@ metadata:
   name: {{ include "iumbit.fullname" . }}-config
   labels:
     {{- include "iumbit.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 data:
   SERVER_PORT: {{ .Values.config.serverPort | default "8080" | quote }}
   DB_HOST: {{ include "iumbit.fullname" . }}-postgresql

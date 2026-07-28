@@ -7,10 +7,10 @@ metadata:
     {{- include "iumbit.labels" . | nindent 4 }}
     app.kubernetes.io/component: liquibase
   annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   backoffLimit: 3
+  ttlSecondsAfterFinished: 604800
   template:
     metadata:
       labels:

@@ -5,6 +5,8 @@ metadata:
   labels:
     {{- include "iumbit.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   type: ClusterIP
   ports:

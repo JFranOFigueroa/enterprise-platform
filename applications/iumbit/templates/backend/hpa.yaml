@@ -5,6 +5,8 @@ metadata:
   name: {{ include "iumbit.fullname" . }}-backend
   labels:
     {{- include "iumbit.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
