@@ -68,7 +68,7 @@ frontend:
     tag: "v1.0.0-dev.4"
   port: 8080
   replicas: 1
-  vueAppApiUrl: "/api/v1/"
+  vueAppApiUrl: "/check-it-1.0.0-dev.17/api/v1/"
   vueCliTest: "true"
   vueAppGoogleClientId: "CHANGE_ME"
   vueAppMicrosoftClientId: "CHANGE_ME"
