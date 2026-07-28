@@ -12,7 +12,7 @@ spec:
   project: enterprise-platform
   source:
     repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
-    targetRevision: main
+    targetRevision: {{ app_config.targetRevision | default('main') }}
     path: {{ app_config.repoPath }}
     helm:
       releaseName: {{ app_config.name }}
@@ -32,3 +32,9 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
