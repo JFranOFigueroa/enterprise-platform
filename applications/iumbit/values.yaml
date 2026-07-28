@@ -100,7 +100,7 @@ liquibase:
   image:
     repository: nitesoftmx/iumbit-liquibase
     tag: "v0.0.1-dev.1"
-  changelogFile: "/liquibase/changelog/changelog-master.yaml"
+  changelogFile: "changelog-master.yaml"
   resources:
     requests:
       cpu: 100m
