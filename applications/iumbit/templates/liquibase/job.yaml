@@ -35,6 +35,7 @@ spec:
         - name: liquibase
           image: "{{ .Values.liquibase.image.repository }}:{{ .Values.liquibase.image.tag }}"
           imagePullPolicy: IfNotPresent
+          args: ["update"]
           env:
             - name: LIQUIBASE_COMMAND_URL
               value: "jdbc:postgresql://{{ include "iumbit.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
