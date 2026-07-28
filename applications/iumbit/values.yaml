@@ -46,7 +46,7 @@ frontend:
     tag: "v1.0.0-dev.3"
   port: 8080
   replicas: 1
-  vueAppApiUrl: "/check-it-1.0.0-dev.16/api/v1/"
+  vueAppApiUrl: "/api/v1/"
   vueCliTest: "true"
   vueAppGoogleClientId: "CHANGE_ME"
   vueAppMicrosoftClientId: "CHANGE_ME"
@@ -89,8 +89,22 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.16
+        - path: /api
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
   tls: []
+
+liquibase:
+  enabled: true
+  image:
+    repository: nitesoftmx/iumbit-liquibase
+    tag: "v0.0.1-dev.1"
+  changelogFile: "/liquibase/changelog/changelog-master.yaml"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

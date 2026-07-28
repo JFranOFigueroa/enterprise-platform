@@ -68,7 +68,7 @@ frontend:
     tag: "v1.0.0-dev.4"
   port: 8080
   replicas: 1
-  vueAppApiUrl: "/check-it-1.0.0-dev.17/api/v1/"
+  vueAppApiUrl: "/api/v1/"
   vueCliTest: "true"
   vueAppGoogleClientId: "CHANGE_ME"
   vueAppMicrosoftClientId: "CHANGE_ME"
@@ -133,7 +133,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.17
+        - path: /api
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
@@ -144,7 +144,7 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.17
+        - path: /api
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
@@ -152,3 +152,12 @@ ingress:
     - secretName: iumbit-tls
       hosts:
         - bta.iumbit.com.mx
+
+liquibase:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

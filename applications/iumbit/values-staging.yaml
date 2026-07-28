@@ -36,7 +36,16 @@ ingress:
           pathType: Prefix
           serviceName: frontend
           servicePort: 8080
-        - path: /check-it-1.0.0-dev.16
+        - path: /api
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
+
+liquibase:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi

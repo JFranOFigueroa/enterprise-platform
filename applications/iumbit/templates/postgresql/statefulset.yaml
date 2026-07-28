@@ -43,14 +43,39 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-            - name: initdb
-              mountPath: /docker-entrypoint-initdb.d
           resources:
             {{- toYaml .Values.postgresql.primary.resources | nindent 12 }}
-      volumes:
-        - name: initdb
-          configMap:
-            name: {{ include "iumbit.fullname" . }}-initdb
+          startupProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            periodSeconds: 15
+            failureThreshold: 3
+      volumes: []
   {{- if .Values.postgresql.primary.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
