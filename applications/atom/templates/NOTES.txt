@@ -1,0 +1,18 @@
+ATOM has been deployed to your cluster.
+
+Access the application at:
+  http://185.253.155.4:{{ .Values.proxy.nodePort }}
+
+Proxy routes:
+  /     → Frontend (Vue.js SPA)
+  /core → Backend (rewrite to /sicc/core/*)
+  /wms  → Backend (rewrite to /sicc-wms/wms/*)
+  /pos  → Backend (rewrite to /sicc-pos/pos/*)
+  /api  → Backend (passthrough)
+
+Backend context roots:
+  /sicc      → Core controller
+  /sicc-wms  → WMS controller
+  /sicc-pos  → POS controller
+
+Database: {{ .Values.postgresql.auth.database }}

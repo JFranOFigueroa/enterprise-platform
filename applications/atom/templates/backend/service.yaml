@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "atom.fullname" . }}-backend
+  labels:
+    {{- include "atom.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.backend.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "atom.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend

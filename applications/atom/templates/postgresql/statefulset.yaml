@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "atom.fullname" . }}-postgresql
+  labels:
+    {{- include "atom.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  serviceName: {{ include "atom.fullname" . }}-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "atom.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        {{- include "atom.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgresql.auth.database | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "atom.fullname" . }}-secrets
+                  key: DB_USERNAME
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "atom.fullname" . }}-secrets
+                  key: DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            {{- if .Values.postgresql.primary.initSql.enabled }}
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+            {{- end }}
+          resources:
+            {{- toYaml .Values.postgresql.primary.resources | nindent 12 }}
+          startupProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgresql.auth.database | default "postgres" | quote }}
+                - -d
+                - {{ .Values.postgresql.auth.database | quote }}
+            periodSeconds: 15
+            failureThreshold: 3
+      volumes:
+        {{- if .Values.postgresql.primary.initSql.enabled }}
+        - name: init-sql
+          configMap:
+            name: {{ include "atom.fullname" . }}-init-sql
+        {{- end }}
+  {{- if .Values.postgresql.primary.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.postgresql.primary.persistence.storageClassName }}
+        storageClassName: {{ .Values.postgresql.primary.persistence.storageClassName }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.primary.persistence.size }}
+  {{- end }}

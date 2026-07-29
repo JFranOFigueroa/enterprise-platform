@@ -1,0 +1,6 @@
+# Enterprise Platform - ATOM Production Values
+# Production uses the base values.yaml defaults.
+# This file exists for consistency with the IUMBIT pattern
+# and can be used to override specific values for production.
+global:
+  environment: production

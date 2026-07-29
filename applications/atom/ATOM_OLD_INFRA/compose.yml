@@ -1,0 +1,53 @@
+services:
+  atom-postgres:
+    image: postgres:18.0-trixie
+    container_name: atom-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: atom
+    expose:
+      - "5432"
+    #ports:
+    #  - "5432:5432"
+    volumes:
+    #  - ./postgres/postgres-data:/var/lib/postgresql
+      - ./postgres/sql:/docker-entrypoint-initdb.d
+    networks:
+      - atom_default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  atom-wildfly:
+    image: nitesoftmx/atom-wildfly-app:1.0.0-dev.1
+    container_name: atom-wildfly
+    env_file:
+      - .env
+    ports:
+      - "8079:8080"
+      - "9991:9990"
+    networks:
+      - atom_default
+    depends_on:
+      atom-postgres:
+        condition: service_healthy
+
+  atom-nginx:
+    image: nitesoftmx/atom-nginx-web:1.0.0-dev.1
+    container_name: atom-nginx
+    env_file:
+      - .env
+    ports:
+      - "3001:8080"
+    networks:
+      - atom_default
+    depends_on:
+      atom-wildfly:
+        condition: service_healthy
+
+networks:
+  atom_default:
+    driver: bridge

@@ -1,0 +1,13 @@
+{{- if .Values.postgresql.primary.initSql.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "atom.fullname" . }}-init-sql
+  labels:
+    {{- include "atom.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  01-init.sql: |
+{{ .Files.Get "postgres/sql/01-init.sql" | indent 4 }}
+{{- end }}

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "atom.fullname" . }}-config
+  labels:
+    {{- include "atom.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  SERVER_PORT: {{ .Values.config.serverPort | default "8080" | quote }}
+  DB_HOST: {{ include "atom.fullname" . }}-postgresql
+  DB_PORT: "5432"
+  DB_NAME: {{ .Values.postgresql.auth.database | quote }}
+  DB_URL: {{ .Values.config.dbUrl | quote }}
+  JAVA_OPTS: {{ .Values.backend.javaOpts | default "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m" | quote }}
+  NODE_ENV: {{ .Values.config.nodeEnv | default "production" | quote }}
+  VITE_BACKEND_URL: {{ .Values.config.viteBackendUrl | default "" | quote }}

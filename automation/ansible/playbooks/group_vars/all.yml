@@ -69,3 +69,4 @@ common_packages:
 # Ansible loads app_vars/<name>-{{ target_environment }}.yml automatically.
 applications:
   - name: iumbit
+  - name: atom
