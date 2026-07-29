@@ -27,6 +27,8 @@ prometheus:
 
 grafana:
   enabled: true
+  initChownData:
+    enabled: false
   adminPassword: admin
   persistence:
     enabled: true
