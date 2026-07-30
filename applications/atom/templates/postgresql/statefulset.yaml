@@ -6,7 +6,7 @@ metadata:
     {{- include "atom.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   serviceName: {{ include "atom.fullname" . }}-postgresql
   replicas: 1

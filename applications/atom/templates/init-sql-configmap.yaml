@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "atom.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 data:
   01-init.sql: |
 {{ .Files.Get "postgres/sql/01-init.sql" | indent 4 }}
