@@ -24,7 +24,7 @@ spec:
           image: "{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
-            - name: https
+            - name: http
               containerPort: {{ .Values.proxy.port }}
               protocol: TCP
           volumeMounts:

@@ -9,12 +9,9 @@ metadata:
 data:
   Caddyfile: |
     :{{ .Values.proxy.port }} {
-        tls internal
-
-        @http {
-            protocol http
-        }
-        redir @http https://{host}:{port}{uri}
+        header /core/* Set-Cookie "; Secure" ""
+        header /wms/* Set-Cookie "; Secure" ""
+        header /pos/* Set-Cookie "; Secure" ""
 
         log {
             output stdout
