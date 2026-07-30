@@ -35,19 +35,13 @@ spec:
           resources:
             {{- toYaml .Values.proxy.resources | nindent 12 }}
           livenessProbe:
-            exec:
-              command:
-                - wget
-                - -qO-
-                - http://127.0.0.1:2019/config/
+            tcpSocket:
+              port: {{ .Values.proxy.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
-            exec:
-              command:
-                - wget
-                - -qO-
-                - http://127.0.0.1:2019/config/
+            tcpSocket:
+              port: {{ .Values.proxy.port }}
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
