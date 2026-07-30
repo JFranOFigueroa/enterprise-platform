@@ -11,7 +11,7 @@ spec:
   type: NodePort
   ports:
     - port: {{ .Values.proxy.port }}
-      targetPort: http
+      targetPort: {{ .Values.proxy.port }}
       nodePort: {{ .Values.proxy.nodePort }}
       protocol: TCP
       name: http
