@@ -30,22 +30,25 @@ data:
           proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location /core/ {
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc/;
+        location ~ ^/core($|/) {
+          rewrite ^/core(/.*)$ /sicc$1 break;
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc /core;
           proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
         }
 
-        location /wms/ {
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc-wms/;
+        location ~ ^/wms($|/) {
+          rewrite ^/wms(/.*)$ /sicc-wms$1 break;
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc-wms /wms;
           proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
         }
 
-        location /pos/ {
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc-pos/;
+        location ~ ^/pos($|/) {
+          rewrite ^/pos(/.*)$ /sicc-pos$1 break;
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc-pos /pos;
           proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
