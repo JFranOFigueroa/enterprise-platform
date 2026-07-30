@@ -31,7 +31,7 @@ data:
         }
 
         location ~ ^/core($|/) {
-          rewrite ^/core(/.*)$ /sicc$1 break;
+          rewrite ^/core(/.*)$ /sicc/core$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc /core;
           proxy_cookie_flags ~ secure off;
@@ -39,7 +39,7 @@ data:
         }
 
         location ~ ^/wms($|/) {
-          rewrite ^/wms(/.*)$ /sicc-wms$1 break;
+          rewrite ^/wms(/.*)$ /sicc-wms/wms$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc-wms /wms;
           proxy_cookie_flags ~ secure off;
@@ -47,7 +47,7 @@ data:
         }
 
         location ~ ^/pos($|/) {
-          rewrite ^/pos(/.*)$ /sicc-pos$1 break;
+          rewrite ^/pos(/.*)$ /sicc-pos/pos$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_cookie_path /sicc-pos /pos;
           proxy_cookie_flags ~ secure off;
