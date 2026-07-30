@@ -24,7 +24,7 @@ spec:
           image: "{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
           imagePullPolicy: IfNotPresent
           ports:
-            - name: http
+            - name: https
               containerPort: {{ .Values.proxy.port }}
               protocol: TCP
           volumeMounts:
@@ -35,15 +35,19 @@ spec:
           resources:
             {{- toYaml .Values.proxy.resources | nindent 12 }}
           livenessProbe:
-            httpGet:
-              path: /
-              port: http
+            exec:
+              command:
+                - wget
+                - -qO-
+                - http://127.0.0.1:2019/config/
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
-            httpGet:
-              path: /
-              port: http
+            exec:
+              command:
+                - wget
+                - -qO-
+                - http://127.0.0.1:2019/config/
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:

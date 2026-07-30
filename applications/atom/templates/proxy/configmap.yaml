@@ -9,29 +9,30 @@ metadata:
 data:
   Caddyfile: |
     :{{ .Values.proxy.port }} {
+        tls internal
+
+        @http {
+            protocol http
+        }
+        redir @http https://{host}:{port}{uri}
+
         log {
             output stdout
         }
 
         handle /core/* {
             uri replace /core/ /sicc/core/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
-                header_down Set-Cookie "; Secure" ""
-            }
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
         }
 
         handle /wms/* {
             uri replace /wms/ /sicc-wms/wms/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
-                header_down Set-Cookie "; Secure" ""
-            }
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
         }
 
         handle /pos/* {
             uri replace /pos/ /sicc-pos/pos/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
-                header_down Set-Cookie "; Secure" ""
-            }
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
         }
 
         handle /api/* {
