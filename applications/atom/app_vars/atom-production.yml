@@ -1,0 +1,10 @@
+---
+app_config:
+  name: atom
+  namespace: apps-production
+  valuesFile: values-production.yaml
+  repoPath: applications/atom
+
+app_secrets:
+  secrets.dbUsername: "postgres"
+  secrets.dbPassword: "postgres"
