@@ -29,8 +29,8 @@ spec:
               protocol: TCP
           volumeMounts:
             - name: config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
               readOnly: true
           resources:
             {{- toYaml .Values.proxy.resources | nindent 12 }}

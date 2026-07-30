@@ -7,53 +7,38 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 data:
-  nginx.conf: |
-    worker_processes 1;
-    events {
-      worker_connections 1024;
-    }
-    http {
-      include      /etc/nginx/mime.types;
-      default_type application/octet-stream;
-      sendfile     on;
-      keepalive_timeout 65;
-
-      server {
-        listen {{ .Values.proxy.port }} default_server;
-        server_name _;
-
-        location / {
-          proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
+  Caddyfile: |
+    :{{ .Values.proxy.port }} {
+        log {
+            output stdout
         }
 
-        location ~ ^/core($|/) {
-          rewrite ^/core(/.*)$ /sicc/core$1 break;
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_flags sicc_auth_token httponly samesite=strict;
-          proxy_set_header Host $host;
+        handle /core/* {
+            uri replace /core/ /sicc/core/
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
+                header_down Set-Cookie "; Secure" ""
+            }
         }
 
-        location ~ ^/wms($|/) {
-          rewrite ^/wms(/.*)$ /sicc-wms/wms$1 break;
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_flags sicc_auth_token httponly samesite=strict;
-          proxy_set_header Host $host;
+        handle /wms/* {
+            uri replace /wms/ /sicc-wms/wms/
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
+                header_down Set-Cookie "; Secure" ""
+            }
         }
 
-        location ~ ^/pos($|/) {
-          rewrite ^/pos(/.*)$ /sicc-pos/pos$1 break;
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_flags sicc_auth_token httponly samesite=strict;
-          proxy_set_header Host $host;
+        handle /pos/* {
+            uri replace /pos/ /sicc-pos/pos/
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }} {
+                header_down Set-Cookie "; Secure" ""
+            }
         }
 
-        location /api/ {
-          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_set_header Host $host;
+        handle /api/* {
+            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
         }
-      }
+
+        handle {
+            reverse_proxy {{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }}
+        }
     }

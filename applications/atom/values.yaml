@@ -106,8 +106,8 @@ frontend:
 proxy:
   enabled: true
   image:
-    repository: nginx
-    tag: "stable-alpine3.17-slim"
+    repository: caddy
+    tag: "2-alpine"
   port: 8080
   nodePort: 31081
   replicas: 1
