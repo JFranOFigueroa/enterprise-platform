@@ -7,40 +7,63 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 data:
-  Caddyfile: |
-    :{{ .Values.proxy.port }} {
-        log {
-            output stdout
+  default.conf: |
+    server {
+        listen {{ .Values.proxy.port }};
+
+        header_filter_by_lua_block {
+            local cookies = ngx.header["Set-Cookie"]
+            if cookies then
+                if type(cookies) == "table" then
+                    for i, c in ipairs(cookies) do
+                        cookies[i] = c:gsub("; Secure", "")
+                    end
+                else
+                    ngx.header["Set-Cookie"] = cookies:gsub("; Secure", "")
+                end
+            end
         }
 
-        handle /core/* {
-            header Set-Cookie ";Secure" ""
-            header Set-Cookie "; Secure" ""
-            uri replace /core/ /sicc/core/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
+        location /core/ {
+            rewrite ^/core/(.*)$ /sicc/core/$1 break;
+            proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        handle /wms/* {
-            header Set-Cookie ";Secure" ""
-            header Set-Cookie "; Secure" ""
-            uri replace /wms/ /sicc-wms/wms/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
+        location /wms/ {
+            rewrite ^/wms/(.*)$ /sicc-wms/wms/$1 break;
+            proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        handle /pos/* {
-            header Set-Cookie ";Secure" ""
-            header Set-Cookie "; Secure" ""
-            uri replace /pos/ /sicc-pos/pos/
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
+        location /pos/ {
+            rewrite ^/pos/(.*)$ /sicc-pos/pos/$1 break;
+            proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        handle /api/* {
-            header Set-Cookie ";Secure" ""
-            header Set-Cookie "; Secure" ""
-            reverse_proxy {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}
+        location /api/ {
+            proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        handle {
-            reverse_proxy {{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }}
+        location / {
+            proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
     }

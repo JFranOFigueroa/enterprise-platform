@@ -106,8 +106,8 @@ frontend:
 proxy:
   enabled: true
   image:
-    repository: caddy
-    tag: "2-alpine"
+    repository: openresty/openresty
+    tag: "alpine"
   port: 8080
   nodePort: 31081
   replicas: 1
