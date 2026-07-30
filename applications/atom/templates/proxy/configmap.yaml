@@ -33,24 +33,21 @@ data:
         location ~ ^/core($|/) {
           rewrite ^/core(/.*)$ /sicc/core$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_path /sicc /core;
-          proxy_cookie_flags ~ secure off;
+          proxy_cookie_flags ~ sicc_auth_token httponly samesite=strict;
           proxy_set_header Host $host;
         }
 
         location ~ ^/wms($|/) {
           rewrite ^/wms(/.*)$ /sicc-wms/wms$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_path /sicc-wms /wms;
-          proxy_cookie_flags ~ secure off;
+          proxy_cookie_flags ~ sicc_auth_token httponly samesite=strict;
           proxy_set_header Host $host;
         }
 
         location ~ ^/pos($|/) {
           rewrite ^/pos(/.*)$ /sicc-pos/pos$1 break;
           proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-          proxy_cookie_path /sicc-pos /pos;
-          proxy_cookie_flags ~ secure off;
+          proxy_cookie_flags ~ sicc_auth_token httponly samesite=strict;
           proxy_set_header Host $host;
         }
 
