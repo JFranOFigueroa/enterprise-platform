@@ -18,59 +18,42 @@ data:
       sendfile     on;
       keepalive_timeout 65;
 
-      upstream frontend {
-        server {{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
-      }
-
-      upstream backend {
-        server {{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
-      }
-
       server {
         listen {{ .Values.proxy.port }} default_server;
         server_name _;
 
         location / {
-          proxy_pass http://frontend;
+          proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/core($|/) {
-          rewrite ^/core(/.*)$ /sicc/core$1 break;
-          proxy_pass http://backend;
+        location /core/ {
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc/;
+          proxy_cookie_path /sicc /core;
+          proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/wms($|/) {
-          rewrite ^/wms(/.*)$ /sicc-wms/wms$1 break;
-          proxy_pass http://backend;
+        location /wms/ {
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc-wms/;
+          proxy_cookie_path /sicc-wms /wms;
+          proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        location ~ ^/pos($|/) {
-          rewrite ^/pos(/.*)$ /sicc-pos/pos$1 break;
-          proxy_pass http://backend;
+        location /pos/ {
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }}/sicc-pos/;
+          proxy_cookie_path /sicc-pos /pos;
+          proxy_cookie_flags ~ secure off;
           proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
         }
 
         location /api/ {
-          proxy_pass http://backend;
+          proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
           proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
         }
       }
     }
