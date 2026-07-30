@@ -380,6 +380,10 @@ applications/
         │   ├── statefulset.yaml
         │   ├── service.yaml
         │   └── configmap-initdb.yaml
+        ├── proxy/                          # Opcional: proxy reverse (OpenResty)
+        │   ├── configmap.yaml              # NGINX config + Lua para manipular headers
+        │   ├── deployment.yaml
+        │   └── service.yaml
         ├── secrets.yaml
         ├── configmap.yaml
         ├── ingress.yaml
@@ -483,6 +487,38 @@ EOF
 
 Repetir para `mi-app-dev.yml`, `mi-app-qa.yml`, `mi-app-staging.yml`, `mi-app-production.yml`.
 
+### Paso 4b (Opcional): Agregar componente Proxy (OpenResty)
+
+Si la app backend envía cookies con `Secure` sobre HTTP (caso común con apps SICC/ATOM), agregar un proxy reverse con OpenResty que elimine el flag `Secure` de los `Set-Cookie`:
+
+```yaml
+# template/proxy/configmap.yaml
+data:
+  default.conf: |
+    server {
+        listen {{ .Values.proxy.port }};
+
+        header_filter_by_lua_block {
+            local cookies = ngx.header["Set-Cookie"]
+            if cookies then
+                if type(cookies) == "table" then
+                    for i, c in ipairs(cookies) do
+                        cookies[i] = c:gsub(";%s*Secure", "")
+                    end
+                else
+                    ngx.header["Set-Cookie"] = cookies:gsub(";%s*Secure", "")
+                end
+            end
+        }
+
+        location / {
+            proxy_pass http://<backend-service>:<port>;
+        }
+    }
+```
+
+**Importante:** El proxy debe ser la puerta de entrada (Service NodePort → proxy → backend/frontend). No usar Ingress directamente.
+
 ### Paso 5: Agregar a playbooks/group_vars/all.yml
 
 ```yaml
@@ -560,13 +596,22 @@ kubectl get pods -n kube-system -l k8s-app=metrics-server
 
 ```bash
 # IUMBIT pods
-kubectl get pods -n apps-dev -l app.kubernetes.io/name=iumbit
+kubectl get pods -n apps-<env> -l app.kubernetes.io/name=iumbit
 
 # IUMBIT services
-kubectl get svc -n apps-dev
+kubectl get svc -n apps-<env>
 
 # IUMBIT ingress
-kubectl get ingress -n apps-dev
+kubectl get ingress -n apps-<env>
+
+# ATOM pods (producción)
+kubectl get pods -n apps-production -l app.kubernetes.io/name=atom
+
+# ATOM proxy logs
+kubectl logs -n apps-production -l app.kubernetes.io/component=proxy
+
+# ATOM access (NodePort, sin DNS)
+curl -sI http://<node-ip>:31081
 ```
 
 ### Verificar HPA (si está habilitado)

@@ -528,6 +528,53 @@ kubectl get priorityclasses -o custom-columns=NAME:.metadata.name,VALUE:.value
 
 ---
 
+---
+
+### 15. "Token faltante" (401 en `/core/authentication/user-data` tras login exitoso)
+
+**Causa:** El backend envía `Set-Cookie: sicc_auth_token=...;Secure;...` en la respuesta del login. El navegador no guarda la cookie porque el flag `Secure` exige HTTPS, pero el frontend se sirve vía HTTP.
+
+**Síntomas:**
+- Login (POST `/core/authentication/login`) retorna `200 OK` con cookie
+- user-data (GET `/core/authentication/user-data`) retorna `401 Token faltante`
+- La cookie NO aparece en Application → Cookies del DevTools
+- El `Set-Cookie` de la respuesta del login incluye `;Secure`
+
+**Solución definitiva (OpenResty + Lua):**
+
+El proxy reverse (OpenResty) debe interceptar el `Set-Cookie` y eliminar el flag `Secure`:
+
+```nginx
+# En templates/proxy/configmap.yaml
+header_filter_by_lua_block {
+    local cookies = ngx.header["Set-Cookie"]
+    if cookies then
+        if type(cookies) == "table" then
+            for i, c in ipairs(cookies) do
+                cookies[i] = c:gsub(";%s*Secure", "")
+            end
+        else
+            ngx.header["Set-Cookie"] = cookies:gsub(";%s*Secure", "")
+        end
+    end
+}
+```
+
+**Notas:**
+- El patrón `";%s*Secure"` cubre `;Secure` (sin espacio), `; Secure` (con espacio) y cualquier variante
+- Se usa `header_filter_by_lua_block` en lugar de `header_filter_by_lua` por ser la forma moderna en OpenResty
+- Si hay múltiples cookies, se itera sobre la tabla
+
+**Alternativas fallidas:**
+| Enfoque | Resultado |
+|---------|-----------|
+| NGINX `proxy_cookie_flags` | NGINX solo permite añadir flags, no quitarlos |
+| Caddy `header_down` dentro de `reverse_proxy` | No soporta find-and-replace, rompe el header |
+| Caddy `header` global | No matchea por el path post-rewrite |
+| Caddy `tls internal` | `ERR_SSL_PROTOCOL_ERROR` con hostname implícito |
+
+---
+
 ## Comandos de Diagnóstico Rápido
 
 ```bash

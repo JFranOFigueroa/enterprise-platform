@@ -112,6 +112,20 @@ enterprise-platform/
 - [x] **ApplicationSet releaseName:** Todos los componentes tienen `releaseName` explícito (cert-manager, kube-prometheus-stack, loki, promtail, metrics-server) para nombres de servicios predecibles
 - [x] **Promtail readiness probe:** timeout incrementado de 1s a 3s para evitar falsos negativos
 - [x] **Loki service name fix:** Con `releaseName: loki`, el servicio se llama `loki` (no `platform-production-loki`), permitiendo que Promtail conecte correctamente
+- [x] **ATOM app deployed:** Primer app nueva sobre la plataforma, solo producción, sin DNS
+  - Helm chart en `applications/atom/` con 21 templates
+  - Backend (WildFly), Frontend (NGINX), PostgreSQL (18), Proxy (OpenResty)
+  - Acceso via NodePort `185.253.155.4:31081` (no Ingress, sin DNS)
+  - Sync-waves: Secret (0) → PostgreSQL + init SQL (1) → App components + Proxy (2)
+- [x] **Cookie Secure flag fix:** Backend envía `Set-Cookie` con `;Secure` pero el frontend se sirve por HTTP
+  - Solución: OpenResty proxy con `header_filter_by_lua_block` que elimina `;Secure` via `gsub` en todas las respuestas del backend
+  - Patrón Lua: `c:gsub(";%s*Secure", "")` cubre `;Secure`, `; Secure`, etc.
+  - Iteraciones fallidas: NGINX `proxy_cookie_flags`, Caddy `header_down`, Caddy `tls internal`, Caddy `header` find-and-replace
+  - Solución final: OpenResty + Lua (probado y funcionando)
+- [x] **IUMBIT liquibase fix:** Job stuck por immutabilidad y memory insuficiente
+  - Anotación `argocd.argoproj.io/sync-options: Replace=true` para manejar immutabilidad
+  - Resources: request 256Mi, limit 512Mi para evitar OOM
+  - Aumentado `backoffLimit` para reintentos
 
 **Pendiente:**
 - [ ] Tests de humo
@@ -121,6 +135,8 @@ enterprise-platform/
   - Agregar variable `cluster_api_server` en inventarios cloud
   - Definir mecanismo de acceso al management cluster (kubeconfig remoto)
   - Agregar tareas Ansible para modo `managed`
+- [ ] **ATOM multi-env:** Actualmente solo production; agregar dev/qa/staging
+- [ ] **IUMBIT liquibase sync:** Desatorar sync congelado en ArgoCD (cancelar operación + re-sync)
 
 ---
 
