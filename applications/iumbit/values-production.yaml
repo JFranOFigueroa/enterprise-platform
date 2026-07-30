@@ -156,8 +156,8 @@ ingress:
 liquibase:
   resources:
     requests:
-      cpu: 25m #100m
-      memory: 32Mi #128Mi
+      cpu: 50m #100m
+      memory: 64Mi #128Mi
     limits:
-      cpu: 50m #250m
-      memory: 64Mi #256Mi
+      cpu: 150m #250m
+      memory: 256Mi #256Mi
