@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/component: liquibase
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 3
   ttlSecondsAfterFinished: 604800
