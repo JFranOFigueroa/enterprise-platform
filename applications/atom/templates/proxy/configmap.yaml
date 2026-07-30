@@ -16,10 +16,10 @@ data:
             if cookies then
                 if type(cookies) == "table" then
                     for i, c in ipairs(cookies) do
-                        cookies[i] = c:gsub("; Secure", "")
+                        cookies[i] = c:gsub(";%s*Secure", "")
                     end
                 else
-                    ngx.header["Set-Cookie"] = cookies:gsub("; Secure", "")
+                    ngx.header["Set-Cookie"] = cookies:gsub(";%s*Secure", "")
                 end
             end
         }
