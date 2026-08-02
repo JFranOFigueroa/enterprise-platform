@@ -1,7 +1,7 @@
 # Enterprise Platform - Code Reference
 
 > Referencia técnica completa de todo el código, configuraciones e infraestructura del proyecto.
-> Última actualización: 2026-07-22
+> Última actualización: 2026-08-01
 
 ---
 
@@ -20,7 +20,8 @@
 11. [Plataforma - Monitoring](#11-plataforma-monitoring)
 12. [Plataforma - Logging](#12-plataforma-logging)
 13. [Plataforma - Certificates](#13-plataforma-certificates)
-14. [Comandos de Referencia Rápida](#14-comandos-rapidos)
+14. [Multi-Tenant (ADR-0005)](#multi-tenant-adr-0005)
+15. [Comandos de Referencia Rápida](#14-comandos-rapidos)
 
 ---
 
@@ -44,6 +45,14 @@ enterprise-platform/
 │       ├── values-staging.yaml
 │       ├── values-production.yaml
 │       └── templates/
+│   ├── atom/                                # App ATOM (solo production, sin DNS)
+│   └── tenant-provisioning/                 # TPS multi-tenant (ADR-0005) - solo chart
+│       ├── Chart.yaml
+│       ├── app_vars/tenant-provisioning-production.yml
+│       ├── values.yaml / values-production.yaml
+│       └── templates/                       # deployment, service, configmap, secrets, rbac, hpa, ingress
+│   # NOTA: el código fuente y el Dockerfile del TPS NO viven en este repo.
+│   # Viven en la máquina de build: /home/pacs/TPS-BUILDS/tenant-provisioning-source/
 ├── automation/                             # Automatización (Ansible)
 │   └── ansible/
 │       ├── run-ansible.sh                  # Wrapper portable
@@ -86,8 +95,11 @@ enterprise-platform/
 │   ├── components/
 │   │   ├── project.yaml
 │   │   ├── platform-apps.yaml
+│   │   ├── tenant-apps.yaml          # ApplicationSet de tenants (ADR-0005)
 │   │   ├── policies-app.yaml         # ApplicationSet for policies (NEW)
 │   │   └── cluster-template.yaml.j2  # Cluster registration (template)
+│   ├── security/
+│   │   └── sealed-secrets-values.yaml # SealedSecrets controller (ADR-0005)
 │   ├── policies/                     # Resource protection (NEW)
 │   │   ├── resource-quotas.yaml      # ResourceQuota + LimitRange
 │   │   └── priority-classes.yaml     # PriorityClasses
@@ -573,6 +585,120 @@ spec:
           prune: true
           selfHeal: true
 ```
+
+---
+
+## Multi-Tenant (ADR-0005)
+
+Aprovisionamiento automático de tenants de IUMBIT vía GitOps: IUMI → TPS → Git → Argo CD → Kubernetes.
+
+### 15.1 ApplicationSet de tenants (`platform/components/tenant-apps.yaml`)
+
+Genera una `Application` por cada directorio `tenants/*` del repositorio `enterprise-platform-tenants`:
+
+- **Git generator** con `directories` (path `tenants/*`).
+- **Doble source**: chart IUMBIT desde el repo de la plataforma con `valueFiles: [$values/tenants/<slug>/values.yaml]`; ref `values` apuntando al repo de tenants.
+- **releaseName**: `<slug>-iumbit` → recursos `<slug>-iumbit-postgresql`, `-backend`, `-frontend`.
+- **Namespace destino**: `tenant-<slug>` (CreateNamespace + ServerSideApply).
+- **Proyecto**: `enterprise-platform` (sourceRepos incluye el repo de tenants).
+
+```yaml
+# Resumen de la estructura
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-apps
+  namespace: gitops
+spec:
+  goTemplate: true
+  generators:
+    - git:
+        repoURL: https://github.com/JFranOFigueroa/enterprise-platform-tenants.git
+        revision: main
+        directories:
+          - path: tenants/*
+  template:
+    metadata:
+      name: '{{ .path.basename }}'
+    spec:
+      project: enterprise-platform
+      sources:
+        - repoURL: <plataforma>.git
+          path: applications/iumbit
+          targetRevision: HEAD
+          helm:
+            releaseName: '{{ .path.basename }}-iumbit'
+            valueFiles:
+              - '$values/tenants/{{ .path.basename }}/values.yaml'
+        - repoURL: <repo-tenants>.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'tenant-{{ .path.basename }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+```
+
+### 15.2 SealedSecrets (`platform/security/sealed-secrets-values.yaml`)
+
+- Chart `bitnami-labs/sealed-secrets` v2.17.3, controller 0.38.4.
+- Namespace: `platform-sealed-secrets`; `fullnameOverride: sealed-secrets-controller`.
+- Se instala vía `platform-apps.yaml` (list generator, cluster `self`).
+- Cert público: `http://sealed-secrets-controller.platform-sealed-secrets.svc:8080/v1/cert.pem`.
+
+### 15.3 Chart IUMBIT multi-tenant (`applications/iumbit/templates/secrets.yaml`)
+
+SealedSecret condicional:
+
+```yaml
+{{- if .Values.secrets.sealed }}
+# SealedSecret: encryptedData sellado con kubeseal (scope strict)
+{{- else }}
+# Secret plano: solo uso local/dev-local
+{{- end }}
+```
+
+### 15.4 Tenant Provisioning Service (chart `applications/tenant-provisioning/`)
+
+> El chart solo define el servicio. El **código fuente y el build de la imagen NO
+> viven en este repositorio**: están en la máquina de build en
+> `/home/pacs/TPS-BUILDS/tenant-provisioning-source/` (git repo local) y se
+> versionan como imagen `nitesoftmx/tenant-provisioning:<tag>` con `./build.sh`.
+
+| Archivo (en TPS-BUILDS/tenant-provisioning-source/) | Responsabilidad |
+|---------|-----------------|
+| `src/main.py` | API FastAPI: `GET /healthz`, `POST/GET /api/v1/tenants`, `GET/DELETE /api/v1/tenants/{id}` |
+| `src/config.py` | Settings desde env vars (`TENANTS_REPO_*`, `ARGOCD_*`, `SEALED_SECRETS_*`, tags por defecto) |
+| `src/schemas.py` | Pydantic `TenantCreate` (validación `[a-z0-9]([-a-z0-9]*[a-z0-9])?`, slugs reservados) y `TenantStatus` |
+| `src/gitops.py` | Clone/fetch del repo tenants, commit/push (auth con token), trigger sync ArgoCD API |
+| `src/secrets_engine.py` | Genera DB password / JWT secret; kubeseal `--raw` con cert del controller |
+| `src/status.py` | Estado de la Application (CustomObjects API) y gestión de namespaces |
+| `Dockerfile` | `python:3.12-slim` + git + kubeseal; expone 8080 |
+| `build.sh` | Build + push `nitesoftmx/tenant-provisioning:<tag>` (manual, no toca el chart) |
+
+Flujo `POST /api/v1/tenants`:
+1. Valida `tenant_id`; idempotente (si existe, devuelve estado).
+2. Genera `values.yaml` del tenant (estructura de `tools/templates/tenant-values.yaml.example`).
+3. Genera secretos aleatorios y los sella con kubeseal (scope strict, ns `tenant-<slug>`).
+4. Escribe `tenants/<slug>/values.yaml` + `metadata.yaml` y hace commit/push.
+5. Dispara `argocd app sync tenant-<slug>`.
+6. Responde `202` con el estado de la Application.
+
+`DELETE /api/v1/tenants/{id}`: remueve `tenants/<slug>/` del repo (Argo CD deprovisiona) y limpia el namespace `tenant-<slug>` en segundo plano.
+
+### 15.5 RBAC del TPS
+
+- ServiceAccount `tenant-provisioning` en su namespace.
+- Role (ns `gitops`): `applications` get/list/watch.
+- ClusterRole: `namespaces` get/list/watch/create/delete.
+
+### 15.6 ConfigMap de configuración
+
+Variables principales: `TENANTS_REPO_URL`, `TENANTS_REPO_BRANCH` (main), `DOMAIN_BASE` (iumbit.com.mx), `NAMESPACE_PREFIX` (tenant-), `RELEASE_SUFFIX` (-iumbit), `ARGOCD_SERVER` (https://argocd-server.gitops.svc), `SEALED_SECRETS_*`, `DEFAULT_*_TAG`.
 
 ---
 

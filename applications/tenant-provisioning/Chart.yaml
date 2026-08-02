@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tenant-provisioning
+description: Tenant Provisioning Service (TPS) - Automatic multi-tenant provisioning via GitOps (ADR-0005)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

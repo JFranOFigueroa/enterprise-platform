@@ -195,3 +195,15 @@ app_config:
   # O para branches específicas:
   targetRevision: "cd/iumbit-dev-20260727"
 ```
+
+### Tenant Provisioning Service (fuera de CI)
+La imagen del TPS (`nitesoftmx/tenant-provisioning`) **no** se construye en CI.
+Es un build manual versionado en la máquina de build:
+
+```bash
+cd /home/pacs/TPS-BUILDS/tenant-provisioning-source
+./build.sh <tag>   # docker build + push nitesoftmx/tenant-provisioning:<tag>
+```
+
+Luego se actualiza a mano `image.tag` en `applications/tenant-provisioning/values.yaml` y `values-production.yaml`.
+Ver runbook `docs/runbooks/tenant-provisioning.md`.

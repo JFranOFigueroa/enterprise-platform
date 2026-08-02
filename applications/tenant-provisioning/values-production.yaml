@@ -1,0 +1,59 @@
+# Enterprise Platform - Tenant Provisioning Service Production Values
+# Secrets are injected via app_vars/tenant-provisioning-production.yml (gitignored)
+# Source code + image build live OUTSIDE this repo:
+#   /home/pacs/TPS-BUILDS/tenant-provisioning-source/  (build.sh)
+global:
+  environment: production
+
+image:
+  repository: nitesoftmx/tenant-provisioning
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+port: 8080
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+hpa:
+  enabled: false
+
+config:
+  tenantsRepoUrl: "https://github.com/JFranOFigueroa/enterprise-platform-tenants.git"
+  tenantsRepoBranch: main
+  tenantsRepoPath: tenants
+  domainBase: "iumbit.com.mx"
+  namespacePrefix: "tenant-"
+  releaseSuffix: "-iumbit"
+  argocdServer: "https://argocd-server.gitops.svc"
+  argocdInsecure: "true"
+  sealedSecretsNamespace: "platform-sealed-secrets"
+  sealedSecretsService: "sealed-secrets-controller"
+  defaultBackendTag: "v1.0.0-dev.17"
+  defaultFrontendTag: "v1.0.0-dev.4"
+  defaultLiquibaseTag: "v0.0.1-dev.1"
+  gitUserName: "Tenant Provisioning Service"
+  gitUserEmail: "tenant-provisioning@nitesoft.mx"
+  workDir: "/data"
+  logLevel: "INFO"
+
+secrets:
+  tenantsRepoToken: "CHANGE_ME"
+  argocdToken: "CHANGE_ME"
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: tps.iumbit.com.mx
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

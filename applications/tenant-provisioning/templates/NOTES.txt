@@ -1,0 +1,10 @@
+Tenant Provisioning Service (TPS) deployed.
+
+API (consumed by IUMBIT SaaS):
+  POST   /api/v1/tenants           Provision a new tenant (async, returns 202)
+  GET    /api/v1/tenants           List tenants
+  GET    /api/v1/tenants/{id}      Tenant provisioning status
+  DELETE /api/v1/tenants/{id}      Deprovision a tenant (async, returns 202)
+  GET    /healthz                  Liveness/readiness
+
+Internal service: {{ include "tenant-provisioning.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.port }}

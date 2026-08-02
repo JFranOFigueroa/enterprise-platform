@@ -363,7 +363,9 @@
   loop: "{{ applications | default([]) }}"
   loop_control:
     loop_var: app_entry
-  when: applications is defined and applications | length > 0
+  when: >
+    applications is defined and applications | length > 0 and
+    (app_entry.environments is not defined or target_environment in app_entry.environments)
 
 - name: Apply ClusterIssuers
   ansible.builtin.command:

@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-07-22
+> Última actualización: 2026-08-01
 
 ---
 
@@ -17,12 +17,14 @@ Enterprise Platform es una **plataforma de ingeniería cloud-agnostic** capaz de
 
 ```text
 enterprise-platform/
-├── ADR/                    # Architecture Decision Records (0001-0004)
+├── ADR/                    # Architecture Decision Records (0001-0006)
 ├── applications/           # Aplicaciones que consumen la plataforma
-│   └── <app-name>/         # Cada app es autocontenida (Chart + app_vars/)
+│   ├── iumbit/             # Chart IUMBIT (reutilizable por tenant)
+│   ├── atom/               # App ATOM (producción)
+│   └── tenant-provisioning/ # TPS multi-tenant (solo chart; código en /home/pacs/TPS-BUILDS)
 ├── automation/             # Ansible: inventarios, playbooks, roles
 ├── bootstrap/              # ArgoCD bootstrap (app-of-apps, app-of-platform)
-├── platform/               # Servicios compartidos (ingress, monitoring, logging, certs, policies)
+├── platform/               # Servicios compartidos (ingress, monitoring, logging, certs, policies, security)
 ├── infrastructure/         # Cloud-agnostic: local-lab, on-prem (scripts/prepare-local.sh), cloud/*
 ├── docs/                   # Documentación (architecture/, runbooks/, archive/)
 ├── tests/                  # Tests de plataforma
@@ -126,6 +128,15 @@ enterprise-platform/
   - Anotación `argocd.argoproj.io/sync-options: Replace=true` para manejar immutabilidad
   - Resources: request 256Mi, limit 512Mi para evitar OOM
   - Aumentado `backoffLimit` para reintentos
+- [x] **ADR-0005 (Multi-Tenant GitOps) implementado:** Arquitectura de aprovisionamiento automático de tenants para IUMI
+  - **SealedSecrets:** SealedSecrets controller como componente de plataforma (ns `platform-sealed-secrets`, chart bitnami-labs/sealed-secrets v2.17.3) + values en `platform/security/sealed-secrets-values.yaml`
+  - **Chart IUMBIT multi-tenant:** `templates/secrets.yaml` con SealedSecret condicional (`secrets.sealed=true` + `encryptedData`); Secret plano solo para uso local
+  - **ApplicationSet de tenants:** `platform/components/tenant-apps.yaml` genera una Application por `tenants/*` del repo `enterprise-platform-tenants`, desplegando IUMBIT en `tenant-<slug>` con `releaseName: <slug>-iumbit`
+  - **Tenant Provisioning Service (TPS):** `applications/tenant-provisioning/` — chart Helm (deployment, service, configmap, secrets, rbac, hpa, ingress) que referencia la imagen `nitesoftmx/tenant-provisioning`. El **código fuente y el build de la imagen NO viven en el repo**: están en la máquina de build en `/home/pacs/TPS-BUILDS/tenant-provisioning-source/` (git local, `build.sh` manual, imagen versionada)
+  - **API TPS:** `POST/GET/DELETE /api/v1/tenants` + `/healthz`; flujo: validar → generar values + sellar secrets → commit/push al repo tenants → trigger sync ArgoCD → reportar estado (sync/health de la Application)
+  - **Registro Ansible:** tenant-provisioning en `group_vars/all.yml` (solo production) + filtro `app_entry.environments` en gitops role para no desplegar TPS en dev-local
+  - **Template de referencia:** `tools/templates/tenant-values.yaml.example` (shape del values generado por tenant)
+  - ADR-0005 → **Aceptado** con sección de implementación
 
 **Pendiente:**
 - [ ] Tests de humo
@@ -137,6 +148,16 @@ enterprise-platform/
   - Agregar tareas Ansible para modo `managed`
 - [ ] **ATOM multi-env:** Actualmente solo production; agregar dev/qa/staging
 - [ ] **IUMBIT liquibase sync:** Desatorar sync congelado en ArgoCD (cancelar operación + re-sync)
+- [ ] **ADR-0006:** Revisar la evolución hacia arquitectura de plataforma/productos (separación IUMI Authentication Provider ↔ producto IUMI)
+- [ ] **Multi-tenant operativo (Fase 0, dependencias externas):**
+  - [x] Crear repositorio `enterprise-platform-tenants` en GitHub (estructura `tenants/` + README)
+  - [ ] Wildcard DNS `*.iumbit.com.mx` apuntando al ingress del clúster
+  - [ ] PAT de GitHub con push al repo tenants → `TENANTS_REPO_TOKEN` en `app_vars/tenant-provisioning-production.yml`
+  - [ ] Token de cuenta de servicio ArgoCD → `ARGOCD_TOKEN` en `app_vars/tenant-provisioning-production.yml`
+  - [x] Imagen `nitesoftmx/tenant-provisioning:1.0.0` publicada en DockerHub (`./build.sh 1.0.0` en `/home/pacs/TPS-BUILDS/tenant-provisioning-source/`)
+  - [ ] Desplegar TPS (run-ansible production) y probar API
+  - [ ] Integración del módulo en IUMI que dispara `POST /api/v1/tenants` (lado IUMI)
+- [ ] **Desacoplar context-path de versión en IUMBIT:** el TPS genera rutas con prefijo de versión (`/check-it-<tag>/api/v1/` e ingress con ese path) porque la imagen de IUMBIT aún no sirve `/api/v1/` sin context-path. Pendiente corregir el empaquetado de la imagen y alinear a `/api/v1/` (ver `docs/cd-contract.md`).
 
 ---
 
@@ -148,13 +169,16 @@ enterprise-platform/
 | ADR-0002 | Cloud Native Platform |
 | ADR-0003 | Bootstrap First |
 | ADR-0004 | Cloud Agnostic |
+| ADR-0005 | Aprovisionamiento automático multi-tenant mediante GitOps |
+| ADR-0006 | Evolución hacia arquitectura de plataforma y productos (Propuesto) |
 
 | Decisión | Elección |
 |----------|----------|
 | OS | Ubuntu (referencia) |
 | Kubernetes | RKE2 |
 | Automatización | Ansible |
-| Secrets | Per-app `app_vars/<app>.yml` (gitignored) + Ansible injection via helm.parameters |
+| Secrets | SealedSecrets (tenant) + per-app `app_vars/<app>.yml` (gitignored) + Ansible injection via helm.parameters |
+| Tenants (multi-tenant) | Repositorio dedicado `enterprise-platform-tenants` + ApplicationSet + TPS (FastAPI) |
 
 ---
 
@@ -201,6 +225,7 @@ enterprise-platform/
 | Loki | 6.24.0 | Logs (singleBinary, filesystem storage) |
 | Promtail | 6.16.6 | Log shipping |
 | local-path-provisioner | v0.0.36 | Default StorageClass |
+| SealedSecrets | 2.17.3 (controller 0.38.4) | Secrets GitOps (multi-tenant) |
 
 ### Capa de Políticas (Resource Protection)
 | Componente | Tipo | Propósito |
@@ -317,7 +342,7 @@ Nunca commitear `playbooks/group_vars/secrets.yml` (también gitignored).
 | Platform Constitution | Principios gobernantes | `docs/architecture/platform-constitution.md` |
 | Platform Architecture | Visión de arquitectura | `docs/architecture/platform-architecture.md` |
 | Context | Contexto acumulado del proyecto | `docs/context.md` |
-| Runbooks | Guías operativas (5 documentos) | `docs/runbooks/` |
+| Runbooks | Guías operativas (6 documentos) | `docs/runbooks/` |
 
 ---
 
@@ -326,13 +351,13 @@ Nunca commitear `playbooks/group_vars/secrets.yml` (también gitignored).
 | Métrica | Valor |
 |---------|-------|
 | Documentos de arquitectura | 11 (docs/architecture/) |
-| Documentos de operación | 7 (docs/) + 5 (docs/runbooks/) |
-| ADRs | 4 (ADR/) |
+| Documentos de operación | 7 (docs/) + 6 (docs/runbooks/) |
+| ADRs | 6 (ADR/) |
 | Ansible roles | 6 |
 | Ansible playbooks | 5 |
 | Helm templates (IUMBIT) | 15 |
 | Terraform providers | 4 (Proxmox, DO, AWS, Hetzner) |
 | Inventarios | 5 |
-| Runbooks | 5 |
-| App vars files | 5 (IUMBIT: dev-local, dev, qa, staging, production) |
+| Runbooks | 6 |
+| App vars files | 5 (IUMBIT: dev-local, dev, qa, staging, production) + 1 (tenant-provisioning: production) |
 | Values files | 5 (IUMBIT: base, dev, qa, staging, production) |

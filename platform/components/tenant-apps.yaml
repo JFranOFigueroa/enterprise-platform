@@ -1,0 +1,67 @@
+# Enterprise Platform - Tenants ApplicationSet
+# =============================================================================
+# Automatic multi-tenant provisioning (ADR-0005).
+#
+# Watches the dedicated tenants repository (enterprise-platform-tenants) and
+# generates ONE ArgoCD Application per tenant directory under tenants/*.
+#
+# The Tenant Provisioning Service (TPS) is the ONLY writer of the tenants repo.
+# Adding/removing a tenant directory creates/removes the corresponding
+# Application (and thus the tenant's isolated stack) automatically.
+#
+# Each tenant gets its own isolated IUMBIT stack:
+#   namespace : tenant-<slug>
+#   release   : <slug>-iumbit
+#   services  : <slug>-iumbit-frontend / -backend / -postgresql
+#   secrets   : SealedSecret (committed encrypted by the TPS via kubeseal)
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-apps
+  namespace: gitops
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/JFranOFigueroa/enterprise-platform-tenants.git
+        revision: main
+        directories:
+          - path: tenants/*
+  template:
+    metadata:
+      name: "tenant-{{ .path.basename }}"
+      labels:
+        app.kubernetes.io/part-of: enterprise-platform
+        app.kubernetes.io/type: tenant
+        tenant: "{{ .path.basename }}"
+    spec:
+      project: enterprise-platform
+      sources:
+        - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
+          targetRevision: main
+          path: applications/iumbit
+          helm:
+            releaseName: "{{ .path.basename }}-iumbit"
+            valueFiles:
+              - $values/tenants/{{ .path.basename }}/values.yaml
+        - repoURL: https://github.com/JFranOFigueroa/enterprise-platform-tenants.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "tenant-{{ .path.basename }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

@@ -1,0 +1,84 @@
+# Enterprise Platform - Tenant Values Template
+# =============================================================================
+# Shape of the values.yaml that the Tenant Provisioning Service (TPS) generates
+# and commits to the enterprise-platform-tenants repo under tenants/<slug>/.
+# Do NOT commit this file to enterprise-platform; it lives in the tenants repo.
+# =============================================================================
+# Example for tenant "acme":
+#   namespace : tenant-acme
+#   release   : acme-iumbit
+#   URL       : https://acme.iumbit.com.mx
+global:
+  environment: production
+
+tenant:
+  id: acme
+  displayName: ACME Corporation
+  company: ACME Corporation
+
+postgresql:
+  auth:
+    database: acme
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClassName: local-path
+
+backend:
+  image:
+    tag: "v1.0.0-dev.17"
+
+frontend:
+  image:
+    tag: "v1.0.0-dev.4"
+  # IUMBIT is currently packaged with a versioned context-path.
+  # PENDING: remove the version context-path once the IUMBIT image serves
+  # /api/v1/ directly (see docs/cd-contract.md).
+  vueAppApiUrl: "/check-it-1.0.0-dev.17/api/v1/"
+
+liquibase:
+  image:
+    tag: "v0.0.1-dev.1"
+
+config:
+  dbUrl: "jdbc:postgresql://acme-iumbit-postgresql:5432/acme"
+  checkitFrontRegisterView: "https://acme.iumbit.com.mx/register"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: acme.iumbit.com.mx
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 8080
+        - path: /check-it-1.0.0-dev.17
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080
+  tls:
+    - secretName: acme-iumbit-tls
+      hosts:
+        - acme.iumbit.com.mx
+
+# Secrets NEVER appear in plaintext. The TPS seals them with kubeseal using the
+# SealedSecrets controller public cert; ArgoCD applies the SealedSecret and the
+# controller produces the plain Secret in-cluster.
+secrets:
+  sealed: true
+  encryptedData:
+    DB_USERNAME: AgBy... # kubeseal --raw output (encrypted)
+    DB_PASSWORD: AgBy...
+    JWT_SECRET_KEY: AgBy...
+    GOOGLE_CLIENT_ID: AgBy...
+    GOOGLE_CLIENT_SECRET: AgBy...
+    MICROSOFT_CLIENT_ID: AgBy...
+    MICROSOFT_TENANT_ID: AgBy...
+    MAIL_USERNAME: AgBy...
+    MAIL_PASSWORD: AgBy...

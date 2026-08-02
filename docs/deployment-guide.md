@@ -761,6 +761,43 @@ kubectl patch application <app-name> -n gitops \
 
 ---
 
+## Multi-Tenant: Tenant Provisioning Service (TPS)
+
+El TPS (ADR-0005) aprovisiona tenants de IUMBIT automáticamente: valida la solicitud, genera el `values.yaml` del tenant (sellando secretos con kubeseal), hace commit/push al repositorio `enterprise-platform-tenants`, dispara el sync en Argo CD y reporta el estado.
+
+### Componentes necesarios en la plataforma
+
+| Componente | Dónde | Estado |
+|------------|-------|--------|
+| SealedSecrets controller | `platform/security/sealed-secrets-values.yaml` (ns `platform-sealed-secrets`) | Aplicado con la plataforma |
+| ApplicationSet de tenants | `platform/components/tenant-apps.yaml` | Aplicado con la plataforma |
+| Chart TPS | `applications/tenant-provisioning/` | Desplegado por Ansible (production) |
+
+### Pasos para activar el multi-tenant (Fase 0)
+
+1. Crear el repositorio `enterprise-platform-tenants` en GitHub (público o privado; Argo CD y el TPS necesitan acceso).
+2. Configurar wildcard DNS `*.iumbit.com.mx` apuntando al ingress del clúster.
+3. Crear un PAT con permiso de push al repo tenants y un token de cuenta de servicio de Argo CD.
+4. Completar `applications/tenant-provisioning/app_vars/tenant-provisioning-production.yml`:
+   ```yaml
+   app_config:
+     name: tenant-provisioning
+     namespace: tenant-provisioning
+     valuesFile: values-production.yaml
+     repoPath: applications/tenant-provisioning
+   app_secrets:
+     TENANTS_REPO_TOKEN: <PAT>
+     ARGOCD_TOKEN: <service-account-token>
+   ```
+5. Ejecutar Ansible en producción:
+   ```bash
+   ./run-ansible.sh -i inventory/onprem/hosts-local.yml site.yml \
+     --extra-vars "target_environment=production"
+   ```
+6. Verificar: `kubectl -n tenant-provisioning get pods` y probar la API (ver runbook `docs/runbooks/tenant-provisioning.md`).
+
+---
+
 ## Comandos de Referencia Rápida
 
 ```bash

@@ -11,6 +11,7 @@
 | [Backup & Restore](backup-restore.md) | Procedimientos de backup y restore |
 | [Scaling](scaling.md) | Escalado horizontal y vertical |
 | [Monitoring](monitoring.md) | Monitoreo y alertas |
+| [Tenant Provisioning](tenant-provisioning.md) | Operación y diagnóstico del TPS multi-tenant |
 
 ## Estructura de un Runbook
 

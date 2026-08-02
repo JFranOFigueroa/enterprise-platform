@@ -62,6 +62,7 @@ frontend:
     enabled: false
 
 secrets:
+  sealed: false
   dbUsername: "CHANGE_ME"
   dbPassword: "CHANGE_ME"
   jwtSecretKey: "CHANGE_ME"

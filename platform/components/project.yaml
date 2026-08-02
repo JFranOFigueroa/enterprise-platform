@@ -10,10 +10,12 @@ spec:
   description: Enterprise Platform - All applications and platform components
   sourceRepos:
     - 'https://github.com/JFranOFigueroa/enterprise-platform.git'
+    - 'https://github.com/JFranOFigueroa/enterprise-platform-tenants.git'
     - 'https://charts.jetstack.io'
     - 'https://prometheus-community.github.io/helm-charts'
     - 'https://grafana.github.io/helm-charts'
     - 'https://kubernetes-sigs.github.io/metrics-server/'
+    - 'https://bitnami-labs.github.io/sealed-secrets'
   destinations:
     - namespace: '*'
       server: '*'

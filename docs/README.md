@@ -9,6 +9,7 @@ docs/
 ├── context.md                          # Project context and current status
 ├── deployment-guide.md                 # Complete deployment instructions
 ├── code-reference.md                   # Technical reference for all code
+├── cd-contract.md                      # CI/CD contract for application images
 ├── environments-architecture.md        # Environment management rules
 ├── architecture/                       # Design documents (Phase 1)
 │   ├── platform-architecture.md        # Vision and 7 principles
@@ -27,7 +28,9 @@ docs/
 │   ├── troubleshooting.md              # Problem diagnosis
 │   ├── backup-restore.md               # Backup procedures
 │   ├── scaling.md                      # Horizontal/vertical scaling
-│   └── monitoring.md                   # Monitoring and alerts
+│   ├── monitoring.md                   # Monitoring and alerts
+│   ├── urgent-fixes-checklist.md       # Urgent fix procedures
+│   └── tenant-provisioning.md          # TPS / multi-tenant operations (ADR-0005)
 └── archive/                            # Historical documents
     └── OLD_Architecture/               # Legacy Docker Compose setup
 ```
@@ -51,7 +54,18 @@ docs/
 
 ## Architecture Decision Records
 
-See [ADR/](../ADR/) for all architectural decisions.
+See [ADR/](../ADR/) for all architectural decisions:
+
+| ADR | Decisión | Estado |
+|-----|----------|--------|
+| ADR-0001 | The Platform is the Product | Accepted |
+| ADR-0002 | Cloud Native Platform | Accepted |
+| ADR-0003 | Bootstrap First | Accepted |
+| ADR-0004 | Cloud Agnostic | Accepted |
+| ADR-0005 | Multi-tenant provisioning via GitOps (TPS + tenants repo) | Accepted |
+| ADR-0006 | Evolution to Platform & Products architecture | Proposed |
+
+> Multi-tenant flow (ADR-0005): IUMI → Tenant Provisioning Service (TPS) → commit to `enterprise-platform-tenants` → Argo CD deploys per-tenant IUMBIT stacks. Source code of the TPS lives OUTSIDE this repo at `/home/pacs/TPS-BUILDS/tenant-provisioning-source/`; the chart here references the versioned image `nitesoftmx/tenant-provisioning`.
 
 ## Conventions
 

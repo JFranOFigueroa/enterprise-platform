@@ -200,9 +200,33 @@ spec:
       namespace: '*'
 ```
 
+## Multi-Tenant (ADR-0005)
+
+Cada tenant es un **ambiente aislado** dentro del mismo clúster, gestionado por Argo CD
+vía el ApplicationSet `tenant-apps` que vigila el repositorio `enterprise-platform-tenants`.
+
+Convenciones de nombres por tenant `<slug>`:
+
+| Recurso | Nombre |
+|---------|--------|
+| Namespace | `tenant-<slug>` |
+| Helm release | `<slug>-iumbit` |
+| Servicios | `<slug>-iumbit-frontend`, `<slug>-iumbit-backend`, `<slug>-iumbit-postgresql` |
+| Secrets | SealedSecret `<slug>-iumbit-sealed-secrets` → Secret `<slug>-iumbit-secrets` |
+| ArgoCD Application | `tenant-<slug>` |
+| URL | `https://<slug>.iumbit.com.mx` |
+
+Reglas:
+
+- El **TPS** es el único escritor del repo de tenants (`tenants/<slug>/values.yaml` + `metadata.yaml`).
+- Los secrets viajan **sellados** (SealedSecrets, scope strict) — nunca en texto plano.
+- Las imágenes backend/frontend/liquibase pueden versionarse por tenant (tags por defecto del TPS si no se especifican).
+- Los tenants no usan los `values-<env>.yaml` por ambiente: el `values.yaml` del tenant es el estado completo.
+
 ## Referencias
 
 - [Platform Topology](architecture/platform-topology.md)
 - [Deployment Guide](deployment-guide.md)
 - [ArgoCD Applications](bootstrap/gitops/argocd/)
 - [IUMBIT Values](applications/iumbit/)
+- [Tenant Provisioning Runbook](runbooks/tenant-provisioning.md)

@@ -70,3 +70,6 @@ common_packages:
 applications:
   - name: iumbit
   - name: atom
+    environments: [production]
+  - name: tenant-provisioning
+    environments: [production]
