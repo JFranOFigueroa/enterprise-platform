@@ -1,0 +1,27 @@
+# Enterprise Platform - ArgoCD RBAC values (TPS service account)
+# =============================================================================
+# Reproducible RBAC so the Tenant Provisioning Service (ADR-0005) can create
+# and sync Applications in the enterprise-platform project via the ArgoCD API.
+#
+# Persisted here instead of manual kubectl edits because the gitops role
+# reinstalls ArgoCD with `helm upgrade --install` on every run, which would
+# otherwise regenerate argocd-rbac-cm / argocd-cm from chart values.
+#
+# The `tps` account password is NOT stored here (secret). Set it after install:
+#   argocd account update-password --account tps --new-password '<password>'
+# then generate the API token:
+#   argocd account generate-token --account tps
+# and put it in applications/tenant-provisioning/app_vars/<env>.yml
+# under app_secrets.secrets.argocdToken.
+# =============================================================================
+configs:
+  rbac:
+    policy.csv: |
+      p, role:tps-apps, applications, get, enterprise-platform/*, allow
+      p, role:tps-apps, applications, sync, enterprise-platform/*, allow
+      p, role:tps-apps, applications, create, enterprise-platform/*, allow
+      p, role:tps-apps, applications, update, enterprise-platform/*, allow
+      p, role:tps-apps, applications, delete, enterprise-platform/*, allow
+      g, tps, role:tps-apps
+  cm:
+    accounts.tps: "login, apiKey"

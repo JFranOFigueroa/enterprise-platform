@@ -35,27 +35,6 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Deploy ArgoCD
-  ansible.builtin.command:
-    cmd: >
-      helm upgrade --install argocd argo/argo-cd
-      --namespace gitops
-      --set global.image.tag=v2.13.3
-      --set server.service.type=NodePort
-      --set server.service.nodePortHttp=30080
-      --set server.service.nodePortHttps=30443
-      --set dex.enabled=false
-      --set applicationSet.enabled=true
-      --wait
-      --timeout 5m
-  changed_when: true
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-# =============================================================================
-# Bootstrap GitOps: Clone repo, deploy platform resources, apply Applications
-# =============================================================================
-
 - name: Install git
   ansible.builtin.apt:
     name: git
@@ -80,6 +59,28 @@
   ansible.builtin.set_fact:
     repo_dest: "{{ repo_clone_dest }}"
   when: repo_dest is not defined or repo_dest | length == 0
+
+- name: Deploy ArgoCD
+  ansible.builtin.command:
+    cmd: >
+      helm upgrade --install argocd argo/argo-cd
+      --namespace gitops
+      --values {{ repo_dest }}/platform/gitops/argocd-rbac-values.yaml
+      --set global.image.tag=v2.13.3
+      --set server.service.type=NodePort
+      --set server.service.nodePortHttp=30080
+      --set server.service.nodePortHttps=30443
+      --set dex.enabled=false
+      --set applicationSet.enabled=true
+      --wait
+      --timeout 5m
+  changed_when: true
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Bootstrap GitOps: Deploy platform resources, apply Applications
+# =============================================================================
 
 - name: Apply local-path-provisioner
   ansible.builtin.command:
