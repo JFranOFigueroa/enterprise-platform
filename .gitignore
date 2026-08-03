@@ -18,8 +18,8 @@
 # Secrets
 # ======================================
 **/app_vars/
-**/secrets.yaml
-**/secret.yaml
+#**/secrets.yaml
+#**/secret.yaml
 **/*-secret.yaml
 **/sealed-secret*.yaml
 **/*-sealed-secret*.yaml
