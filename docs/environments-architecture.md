@@ -212,7 +212,7 @@ Convenciones de nombres por tenant `<slug>`:
 | Namespace | `tenant-<slug>` |
 | Helm release | `<slug>-iumbit` |
 | Servicios | `<slug>-iumbit-frontend`, `<slug>-iumbit-backend`, `<slug>-iumbit-postgresql` |
-| Secrets | SealedSecret `<slug>-iumbit-sealed-secrets` → Secret `<slug>-iumbit-secrets` |
+| Secrets | SealedSecret `<slug>-iumbit-secrets` → Secret `<slug>-iumbit-secrets` (mismo nombre/ns, scope strict) |
 | ArgoCD Application | `tenant-<slug>` |
 | URL | `https://<slug>.iumbit.com.mx` |
 
