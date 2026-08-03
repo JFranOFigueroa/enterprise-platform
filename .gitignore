@@ -20,13 +20,13 @@
 **/app_vars/
 #**/secrets.yaml
 #**/secret.yaml
-**/*-secret.yaml
-**/sealed-secret*.yaml
-**/*-sealed-secret*.yaml
-**/values-secret*.yaml
+# **/*-secret.yaml
+# **/sealed-secret*.yaml
+# **/*-sealed-secret*.yaml
+# **/values-secret*.yaml
 **/values-*-secrets.yaml
-**/.secrets
-**/vault-*.yaml
+# **/.secrets
+# **/vault-*.yaml
 
 # ======================================
 # Kubernetes
