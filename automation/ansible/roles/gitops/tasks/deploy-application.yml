@@ -28,6 +28,11 @@
       Location: applications/{{ app_entry.name }}/app_vars/{{ app_entry.name }}-{{ target_environment }}.yml
       ============================================================
 
+- name: "Deploy {{ app_entry.name }}: Inject generated ArgoCD token"
+  ansible.builtin.set_fact:
+    app_secrets: "{{ app_secrets | combine({'secrets.argocdToken': argocd_tps_token}) }}"
+  when: app_entry.name == 'tenant-provisioning' and argocd_tps_token is defined and argocd_tps_token | length > 0
+
 - name: "Deploy {{ app_entry.name }}: Generate ArgoCD Application"
   ansible.builtin.template:
     src: application.yaml.j2

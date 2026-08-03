@@ -354,6 +354,83 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
+# TPS ArgoCD token (ADR-0005)
+# The Tenant Provisioning Service needs an ArgoCD API token (secrets.argocdToken)
+# to trigger tenant syncs. It is generated here, AFTER ArgoCD is ready, so the
+# deploy loop below can inject it into the tenant-provisioning Application on
+# first install - no manual step required. Re-runs reuse the token already
+# present in the tenant-provisioning-secrets Secret (idempotent).
+# =============================================================================
+
+- name: TPS | Check if tenant-provisioning is active in this environment
+  ansible.builtin.set_fact:
+    tps_active: >-
+      {% set entry = applications | default([]) | selectattr('name', 'equalto', 'tenant-provisioning') | first | default(None) -%}
+      {{ (entry is not none) and (entry.environments is not defined or target_environment in entry.environments) }}
+
+- name: TPS | Read current ARGOCD_TOKEN from Secret (reuse if present)
+  ansible.builtin.command: >
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+    get secret tenant-provisioning-secrets -n tenant-provisioning
+    -o jsonpath='{.data.ARGOCD_TOKEN}' 2>/dev/null
+  register: tps_token_cur
+  changed_when: false
+  failed_when: false
+  when: tps_active
+
+- name: TPS | Reuse existing ArgoCD token
+  ansible.builtin.set_fact:
+    argocd_tps_token: "{{ tps_token_cur.stdout | b64decode }}"
+  when: >-
+    tps_active and tps_token_cur.stdout is defined and tps_token_cur.stdout | length > 0 and
+    (tps_token_cur.stdout | b64decode) != 'CHANGE_ME'
+
+- name: TPS | Read ArgoCD admin password
+  ansible.builtin.command: >
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+    get secret argocd-initial-admin-secret -n gitops
+    -o jsonpath='{.data.password}'
+  register: tps_admin_b64
+  when: tps_active and argocd_tps_token is not defined
+
+- name: TPS | Set ArgoCD admin password fact
+  ansible.builtin.set_fact:
+    tps_admin_pass: "{{ tps_admin_b64.stdout | b64decode }}"
+  when: tps_active and argocd_tps_token is not defined
+
+- name: TPS | Create ArgoCD session (admin)
+  ansible.builtin.uri:
+    url: https://127.0.0.1:30443/api/v1/session
+    method: POST
+    body_format: json
+    body:
+      username: admin
+      password: "{{ tps_admin_pass }}"
+    status_code: 200
+    validate_certs: false
+  register: tps_session
+  when: tps_active and argocd_tps_token is not defined
+
+- name: TPS | Generate ArgoCD token for account tps
+  ansible.builtin.uri:
+    url: https://127.0.0.1:30443/api/v1/account/tps/token
+    method: POST
+    body_format: json
+    body:
+      name: tps
+    headers:
+      Authorization: "Bearer {{ tps_session.json.token }}"
+    status_code: 200
+    validate_certs: false
+  register: tps_token_resp
+  when: tps_active and argocd_tps_token is not defined
+
+- name: TPS | Set generated token fact
+  ansible.builtin.set_fact:
+    argocd_tps_token: "{{ tps_token_resp.json.token }}"
+  when: tps_active and argocd_tps_token is not defined
+
+# =============================================================================
 # Application Deployment (Generic)
 # Reads app metadata from applications/<name>/app_vars/<name>.yml
 # Each application is self-contained - no platform-level app-specific config.
