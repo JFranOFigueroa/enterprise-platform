@@ -63,7 +63,7 @@ spec:
                 - component: sealed-secrets
                   chart: sealed-secrets
                   chartVersion: 2.17.3
-                  helmRepoURL: https://bitnami-labs.github.io/sealed-secrets
+                  helmRepoURL: https://bitnami.github.io/sealed-secrets
                   valuesPath: platform/security/sealed-secrets-values.yaml
                   namespace: platform-sealed-secrets
                   releaseName: sealed-secrets
