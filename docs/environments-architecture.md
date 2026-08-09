@@ -1,7 +1,7 @@
 # Environments Architecture
 
 > Documentación de la finalidad, estructura y reglas para la gestión de ambientes en Enterprise Platform.
-> Última actualización: 2026-07-16
+> Última actualización: 2026-08-03
 
 ## Propósito
 
@@ -185,6 +185,10 @@ generators:
           releaseName: loki
         - name: promtail
           releaseName: promtail
+        - name: metrics-server
+          releaseName: metrics-server
+        - name: sealed-secrets
+          releaseName: sealed-secrets
 ```
 
 **Nota:** El `releaseName` controla el nombre del Helm release y los recursos de Kubernetes. Por ejemplo, con `releaseName: loki`, el servicio se llama `loki` (no `platform-dev-local-loki`), lo que permite que Promtail conecte correctamente via `http://loki.platform-logging.svc.cluster.local:3100`.
@@ -222,6 +226,17 @@ Reglas:
 - Los secrets viajan **sellados** (SealedSecrets, scope strict) — nunca en texto plano.
 - Las imágenes backend/frontend/liquibase pueden versionarse por tenant (tags por defecto del TPS si no se especifican).
 - Los tenants no usan los `values-<env>.yaml` por ambiente: el `values.yaml` del tenant es el estado completo.
+
+### SealedSecrets (scope strict)
+
+- El controller desencripta usando el label `namespace/name` **del propio recurso SealedSecret**; `spec.template.metadata.name` se ignora (bitnami-labs/sealed-secrets#1543).
+- El TPS sella con `kubeseal --name {release}-secrets --namespace tenant-<slug> --scope strict`, por lo que el SealedSecret **debe llamarse igual que el Secret destino**: `{slug}-iumbit-secrets` en `tenant-<slug>`. Un nombre distinto produce `no key could decrypt secret (...)`.
+- El `encryptedData` es seguro para commitear al repo de tenants (solo el controller, con su llave, puede desencriptarlo).
+
+### Acceso al TPS
+
+- Interno (cluster): `http://tenant-provisioning.tenant-provisioning.svc:8080` (Service ClusterIP, puerto 8080).
+- Externo: definido el host `tps.iumbit.com.mx` pero **`ingress.enabled: false`** (la API no tiene autenticación; no exponer públicamente sin protegerla).
 
 ## Referencias
 

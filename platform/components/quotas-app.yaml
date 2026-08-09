@@ -1,17 +1,17 @@
 # =============================================================================
-# Enterprise Platform - Platform Policies ApplicationSet
+# Enterprise Platform - Platform Quotas ApplicationSet
 # =============================================================================
-# Deploys PriorityClasses via ArgoCD to EVERY registered cluster.
-#   source: platform/policies/priority-classes/
+# Deploys ResourceQuota + LimitRange via ArgoCD ONLY to clusters labeled
+# `env-policies: enabled` (typically production), because the quotas target
+# namespaces like `apps-production` that do not exist in every environment.
 #
-# ResourceQuota/LimitRange are environment-specific (namespaces like
-# apps-production) and are managed by platform-quotas.yaml, which only
-# generates for clusters labeled `env-policies: enabled`.
+# Without this gate the quotas Application could never become Synced/Healthy in
+# environments lacking the target namespace, blocking the final convergence gate.
 # =============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: platform-policies
+  name: platform-quotas
   namespace: gitops
 spec:
   goTemplate: true
@@ -21,15 +21,16 @@ spec:
         selector:
           matchLabels:
             argocd.argoproj.io/secret-type: cluster
+            env-policies: enabled
   template:
     metadata:
-      name: "platform-{{ .name }}-policies"
+      name: "platform-{{ .name }}-quotas"
     spec:
       project: enterprise-platform
       sources:
         - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
           targetRevision: main
-          path: platform/policies/priority-classes
+          path: platform/policies/quotas
           directory:
             recurse: false
       destination:

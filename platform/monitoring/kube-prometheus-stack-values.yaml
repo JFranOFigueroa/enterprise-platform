@@ -1,4 +1,11 @@
-# Enterprise Platform - Prometheus Stack Values
+# Enterprise Platform - Prometheus Stack Values (base)
+# =============================================================================
+# Base values are environment-agnostic. Production-only settings (real domain,
+# TLS issuer, admin credentials) live in the per-environment overlay:
+#   platform/monitoring/kube-prometheus-stack-values-<cluster>.yaml
+# which platform-apps.yaml appends automatically when present
+# (see IgnoreMissingValueFiles sync option).
+# =============================================================================
 prometheus:
   ingress:
     enabled: true
@@ -8,6 +15,7 @@ prometheus:
     path: /
     pathType: Prefix
   prometheusSpec:
+    priorityClassName: platform-high
     retention: 15d
     resources:
       requests:
@@ -29,7 +37,10 @@ grafana:
   enabled: true
   initChownData:
     enabled: false
+  # Dev default only. Override for production via the per-environment overlay
+  # (adminExistingSecret) - never commit production credentials here.
   adminPassword: admin
+  priorityClassName: platform-high
   persistence:
     enabled: true
     size: 5Gi
@@ -41,22 +52,13 @@ grafana:
     limits:
       cpu: 200m
       memory: 512Mi
-  grafana.ini:
-    server:
-      root_url: "https://gfa.iumbit.com.mx"
   ingress:
     enabled: true
     ingressClassName: nginx
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-production
     hosts:
-      - gfa.iumbit.com.mx
+      - grafana.localhost
     path: /
     pathType: Prefix
-    tls:
-      - secretName: grafana-tls
-        hosts:
-          - gfa.iumbit.com.mx
 
 alertmanager:
   enabled: true
@@ -68,6 +70,7 @@ alertmanager:
     path: /
     pathType: Prefix
   alertmanagerSpec:
+    priorityClassName: platform-high
     resources:
       requests:
         cpu: 50m
@@ -83,12 +86,31 @@ alertmanager:
           resources:
             requests:
               storage: 1Gi
-
-nodeExporter:
-  enabled: true
-
-kubeStateMetrics:
-  enabled: true
+  # Alertmanager routing/receivers (raw config, merged by the chart).
+  # Receivers are intentionally empty placeholders: wire each environment's
+  # notification endpoint (webhook/slack/email) in the per-environment overlay.
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ["alertname", "cluster"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: default
+      routes:
+        - matchers:
+            - 'severity="critical"'
+          receiver: platform-critical
+          repeat_interval: 1h
+        - matchers:
+            - 'severity="warning"'
+          receiver: platform-warning
+          repeat_interval: 4h
+    receivers:
+      - name: default
+      - name: platform-critical
+      - name: platform-warning
 
 additionalPrometheusRulesMap:
   platform-alerts:
@@ -183,17 +205,8 @@ serviceMonitors:
       - port: http-metrics
         interval: 30s
 
-alertmanagerConfig:
-  routes:
-    - match:
-        severity: critical
-      receiver: platform-critical
-      repeat_interval: 1h
-    - match:
-        severity: warning
-      receiver: platform-warning
-      repeat_interval: 4h
+nodeExporter:
+  enabled: true
 
-receivers:
-  - name: platform-critical
-  - name: platform-warning
+kubeStateMetrics:
+  enabled: true

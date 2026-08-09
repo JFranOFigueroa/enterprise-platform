@@ -208,3 +208,5 @@ DELETE /api/v1/tenants/{id} (202) – elimina el tenant de Git y limpia el names
 GET /healthz – health check.
 
 El formato de values.yaml generado por tenant se documenta en tools/templates/tenant-values.yaml.example y el flujo operativo en docs/runbooks/tenant-provisioning.md.
+
+Nota de implementación (2026-08-09): tras el push, el TPS ejecuta wait_for_application → hard_refresh (anotación argocd.argoproj.io/refresh=hard, para invalidar el error cacheado del repo-server) → trigger sync, y un self-heal en background (~50s) que re-aplica refresh + sync si detecta errores cacheados de generación de manifiestos. Detalles en docs/runbooks/troubleshooting.md §18.

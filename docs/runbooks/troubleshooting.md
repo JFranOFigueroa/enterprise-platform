@@ -414,7 +414,7 @@ kubectl edit deployment <nombre> -n apps-production
 # Reducir resources.requests y resources.limits
 
 # Opción 2: Aumentar ResourceQuota
-# Editar platform/policies/resource-quotas.yaml
+# Editar platform/policies/quotas/resource-quotas.yaml
 # Cambiar valores en spec.hard
 # Push a Git → ArgoCD sincroniza
 
@@ -572,6 +572,73 @@ header_filter_by_lua_block {
 | Caddy `header_down` dentro de `reverse_proxy` | No soporta find-and-replace, rompe el header |
 | Caddy `header` global | No matchea por el path post-rewrite |
 | Caddy `tls internal` | `ERR_SSL_PROTOCOL_ERROR` con hostname implícito |
+
+---
+
+### 16. SealedSecret en estado `no key could decrypt secret (...)`
+
+**Causa:** Con scope `strict`, el controller SealedSecrets desencripta usando el label `namespace/name` **del propio recurso SealedSecret**; `spec.template.metadata.name` se ignora (issue bitnami-labs/sealed-secrets#1543, confirmado en el código fuente v0.30.0). Si el nombre del SealedSecret no coincide con el que se usó al sellar (`kubeseal --name {release}-secrets`), el RSA-OAEP falla aunque la llave sea correcta. **No es una rotación de llaves.**
+
+**Síntomas:**
+- `kubectl -n tenant-<slug> get sealedsecret` → STATUS `no key could decrypt secret (DB_PASSWORD, DB_USERNAME, ...)`
+- El Secret plano no existe → pods en `CreateContainerConfigError: secret "...-secrets" not found`
+
+**Verificación:**
+```bash
+kubectl -n tenant-<slug> get sealedsecret,secret,pods -o wide
+kubectl -n platform-sealed-secrets logs deploy/sealed-secrets-controller --tail=20
+```
+
+**Solución:** el SealedSecret debe llamarse exactamente `{slug}-iumbit-secrets` en `tenant-<slug>` (el TPS sella con `--name {release}-secrets`). Ajustar el nombre del recurso (fix `cc4055d` del chart IUMBIT) — el `encryptedData` no cambia, solo el nombre.
+
+---
+
+### 17. Sync de Argo CD atascado en `waiting for healthy state of apps/StatefulSet/...`
+
+**Causa:** El health-gate de Argo CD **no tiene timeout**: si un recurso de wave 0 no llega a `Healthy`, la operación queda `Running` indefinidamente y **ocupa el slot de sync del app**, bloqueando cualquier sync posterior (incluido selfHeal). El refresh de manifest no cancela la operación en curso.
+
+**Diagnóstico:**
+```bash
+kubectl -n gitops get app tenant-<slug> -o jsonpath='{.status.operationState.phase} | {.status.operationState.message}{"\n"}'
+kubectl -n tenant-<slug> get pods,pvc
+```
+
+**Solución (desbloqueo):**
+```bash
+# Termina la operación atascada; el ApplicationSet regenera el app al instante
+kubectl -n gitops delete app tenant-<slug> --wait=false
+```
+Si tras borrar por la UI el app queda en `Terminating` (finalizer atorado):
+```bash
+kubectl -n gitops patch app tenant-<slug> --type merge -p '{"metadata":{"finalizers":null}}'
+```
+Nota: verificar antes que la causa raíz (p. ej. Secret faltante) esté resuelta, o el app se re-atora en el mismo gate.
+
+---
+
+### 18. `Manifest generation error (cached)` / `no such file or directory`
+
+**Causa:** El repo-server de Argo CD cachea el resultado (incluidos los errores) de `helm template`. Tras un re-deploy fresco, o un race durante el arranque, puede servir un error viejo aunque el archivo **sí** esté commiteado (p. ej. `Error: open <path>/tenants/smoke1/values.yaml: no such file or directory`). Se observa el sufijo `(cached)` y `Retrying attempt #N`. El race típico: el ApplicationSet git generator (`requeueAfterSeconds: 30`) registra la Application del tenant antes de que el repo-server haya hecho checkout del commit nuevo → el render falla contra un árbol obsoleto y el error queda cacheado por commit (el selfHeal lo reintenta sin fin).
+
+**Síntomas:**
+- El app responde `failed` con `ComparisonError: ... Manifest generation error (cached) ...`
+- El directorio del tenant sí genera el app (el generador lo ve) pero el render falla
+
+**Mitigación automática (TPS):** Desde la versión que integra el hard-refresh preventivo, el flujo de creación de tenant ejecuta `wait_for_application → hard_refresh → sync` y luego un self-heal en background que detecta mensajes con `(cached)`/`Manifest generation error`/`ComparisonError` y re-aplica `refresh=hard` + sync (ventana acotada ~50s). Con esto, la creación de tenants **no debería** quedar atascada en este error; si aún lo ves, aplica la solución manual abajo.
+
+**Verificación (¿el archivo está en el remoto?):**
+```bash
+git ls-tree -r --name-only origin/main https://github.com/JFranOFigueroa/enterprise-platform-tenants.git main
+# o clonar y listar:
+git clone --depth 3 -b main https://github.com/JFranOFigueroa/enterprise-platform-tenants.git /tmp/tp-check && ls -la /tmp/tp-check/tenants/smoke1/
+```
+
+**Solución (romper la caché):**
+```bash
+kubectl -n gitops annotate app tenant-<slug> argocd.argoproj.io/refresh=hard --overwrite
+# si persiste, limpiar todos los checkouts cacheados:
+kubectl -n gitops rollout restart deploy/argocd-repo-server
+```
 
 ---
 

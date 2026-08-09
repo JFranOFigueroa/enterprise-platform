@@ -1,5 +1,9 @@
 # Enterprise Platform - Promtail Values
 # Sends logs to Loki in platform-logging namespace
+#
+# Convención de nombres: el servicio de Loki deriva del Helm releaseName del
+# ApplicationSet platform-apps (`releaseName: loki` → servicio `loki`).
+# SI se renombra el releaseName de loki, actualizar esta URL.
 
 config:
   clients:

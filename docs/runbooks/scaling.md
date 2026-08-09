@@ -266,7 +266,7 @@ kubectl describe resourcequota apps-resource-quota -n apps-production
 **Si el HPA no escala (evento "exceeded quota"):**
 1. Verificar resourcequota actual vs límites
 2. Reducir resources de pods existentes O
-3. Aumentar ResourceQuota en `platform/policies/resource-quotas.yaml`
+3. Aumentar ResourceQuota en `platform/policies/quotas/resource-quotas.yaml`
 
 **Límites actuales (apps-production):**
 | Recurso | Límite | Descripción |

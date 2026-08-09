@@ -11,7 +11,7 @@ data:
   DB_HOST: {{ include "iumbit.fullname" . }}-postgresql
   DB_PORT: "5432"
   DB_NAME: {{ .Values.postgresql.auth.database | quote }}
-  DB_URL: {{ .Values.config.dbUrl | quote }}
+  DB_URL: {{ .Values.config.dbUrl | default (printf "jdbc:postgresql://%s-postgresql:5432/%s" (include "iumbit.fullname" .) .Values.postgresql.auth.database) | quote }}
   CHECKIT_FRONT_REGISTER_VIEW: {{ .Values.config.checkitFrontRegisterView | quote }}
   JAVA_OPTS: {{ .Values.backend.javaOpts | default "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m" | quote }}
   VUE_APP_API_URL: {{ .Values.frontend.vueAppApiUrl | default "/api/v1/" | quote }}

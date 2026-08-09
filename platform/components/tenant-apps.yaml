@@ -27,6 +27,7 @@ spec:
     - git:
         repoURL: https://github.com/JFranOFigueroa/enterprise-platform-tenants.git
         revision: main
+        requeueAfterSeconds: 30
         directories:
           - path: tenants/*
   template:
@@ -57,11 +58,14 @@ spec:
           prune: true
           selfHeal: true
         retry:
-          limit: 5
+          limit: 10
           backoff:
             duration: 5s
             factor: 2
-            maxDuration: 3m
+            maxDuration: 10m
         syncOptions:
           - CreateNamespace=true
           - ServerSideApply=true
+          # Per-operation timeout: prevents a stuck resource from blocking the
+          # tenant health-gate indefinitely.
+          - TimeoutSeconds=300

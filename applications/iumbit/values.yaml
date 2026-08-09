@@ -75,7 +75,9 @@ secrets:
 
 config:
   serverPort: "8080"
-  dbUrl: "jdbc:postgresql://iumbit-postgresql:5432/iumbit"
+  # dbUrl vacío = el template lo deriva de <fullname>-postgresql (ver configmap.yaml).
+  # El TPS siempre lo sobrescribe por tenant (config.dbUrl en tenants/<slug>/values.yaml).
+  dbUrl: ""
   checkitFrontRegisterView: "http://192.168.0.101:8080/register"
 
 ingress:

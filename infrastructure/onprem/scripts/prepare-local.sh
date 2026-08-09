@@ -67,7 +67,8 @@ apt-get install -y \
   gnupg \
   lsb-release \
   chrony \
-  ufw
+  ufw \
+  locales
 
 # --- Configure firewall ---
 echo "[5/7] Configuring firewall..."

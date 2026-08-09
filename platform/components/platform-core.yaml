@@ -1,0 +1,71 @@
+# =============================================================================
+# Enterprise Platform - Platform Core Raw Resources ApplicationSet
+# =============================================================================
+# Manages raw (non-Helm) cluster-scoped resources via ArgoCD GitOps:
+#   - local-path-provisioner (default StorageClass)
+#   - cert-manager ClusterIssuers (selfsigned / letsencrypt-staging / -production)
+#
+# HYBRID MODEL (deterministic bootstrap):
+# Ansible still applies these EARLY and idempotently BEFORE app-of-platform so
+# the ordering guarantees hold (StorageClass before any PVC, CRDs before the
+# issuers). ArgoCD then owns them going forward: drift is self-healed and the
+# final convergence gate verifies they stay Synced+Healthy.
+#
+# Why not ArgoCD-only: moving storage/issuers out of the Ansible bootstrap
+# introduces a race (PVCs created before the provisioner pod is Running; CRDs
+# not established before ClusterIssuer is created). Keeping both is idempotent
+# because they reference the exact same manifests.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: platform-core
+  namespace: gitops
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
+          - list:
+              elements:
+                - component: local-path-provisioner
+                  path: platform/storage
+                  directoryRecurse: "false"
+                - component: clusterissuers
+                  path: platform/certificates/issuers
+                  directoryRecurse: "false"
+  template:
+    metadata:
+      name: "platform-{{ .name }}-{{ .component }}"
+    spec:
+      project: enterprise-platform
+      sources:
+        - repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
+          targetRevision: main
+          path: "{{ .path }}"
+          directory:
+            recurse: "{{ .directoryRecurse }}"
+      destination:
+        server: "{{ .server }}"
+        namespace: ""
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 10m
+        syncOptions:
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          # Per-operation timeout: prevents a stuck resource from blocking the
+          # health-gate indefinitely.
+          - TimeoutSeconds=300

@@ -8,10 +8,13 @@
 #   ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml
 #   ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --workers
 #   ./run-ansible.sh -i inventory/cloud-digitalocean/hosts.yml site.yml
+#   ./run-ansible.sh -i inventory/local-lab/hosts.yml site.yml --verify
 #
 # Options:
 #   --workers    Use multi-node inventory (master + worker-01 + worker-02)
 #                Default: single-node (master-01 only)
+#   --verify     After a successful run, execute tests/smoke/verify-deployment.sh
+#                (final convergence gate for all ArgoCD Applications)
 #
 # Why this exists:
 #   WSL mounts /mnt/c/ with world-writable permissions (777).
@@ -108,8 +111,9 @@ INVENTORY_FILE=""
 EXTRA_ARGS=()
 TARGET_ENV=""
 USE_WORKERS=false
+RUN_VERIFY=false
 
-# Parse arguments to find -i inventory path, --extra-vars, and --workers
+# Parse arguments to find -i inventory path, --extra-vars, --workers and --verify
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -i|--inventory|--inventory-file)
@@ -118,6 +122,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --workers)
             USE_WORKERS=true
+            shift
+            ;;
+        --verify)
+            RUN_VERIFY=true
             shift
             ;;
         *)
@@ -201,4 +209,22 @@ fi
 # Pass project root and target environment to Ansible
 set -- "${@}" --extra-vars "project_root=${PROJECT_ROOT}" --extra-vars "target_environment=${TARGET_ENV}"
 
-exec ansible-playbook "$@"
+ansible-playbook "$@"
+PLAYBOOK_RC=$?
+
+# Post-deploy verification (final convergence gate)
+if [[ "$RUN_VERIFY" == "true" ]]; then
+    if [[ "$PLAYBOOK_RC" -ne 0 ]]; then
+        echo "[run-ansible.sh] Playbook failed (rc=${PLAYBOOK_RC}), skipping verification" >&2
+    else
+        echo "[run-ansible.sh] Playbook succeeded, running deployment verification..."
+        "${PROJECT_ROOT}/tests/smoke/verify-deployment.sh"
+        VERIFY_RC=$?
+        if [[ "$VERIFY_RC" -ne 0 ]]; then
+            echo "[run-ansible.sh] ERROR: deployment verification FAILED (rc=${VERIFY_RC})" >&2
+            exit "$VERIFY_RC"
+        fi
+    fi
+fi
+
+exit "$PLAYBOOK_RC"

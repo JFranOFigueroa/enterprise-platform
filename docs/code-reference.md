@@ -336,7 +336,7 @@ Los clusters remotos se auto-registran en el management cluster.
 2. Crea su Secret (cluster-dev, cluster-qa, etc.)
 3. Secret se aplica al management cluster
 4. Management cluster detecta todos los clusters
-5. Matrix: N clusters × 5 componentes = N×5 Applications
+5. Matrix: N clusters × 6 componentes = N×6 Applications
 
 #### Convención de Nombres del ApplicationSet
 
@@ -356,12 +356,31 @@ Cada componente tiene un `releaseName` explícito que controla el nombre del Hel
 | dev-local | loki | platform-dev-local-loki | loki |
 | dev-local | promtail | platform-dev-local-promtail | promtail |
 | dev-local | metrics-server | platform-dev-local-metrics-server | metrics-server |
+| dev-local | sealed-secrets | platform-dev-local-sealed-secrets | sealed-secrets |
+
+**Convención única (todas las capas):**
+
+| Capa | Patrón | Ejemplo |
+|------|--------|---------|
+| ArgoCD Application (plataforma) | `platform-<env>-<component>` | `platform-production-loki` |
+| ArgoCD Application (negocio) | `<app>-<env>` | `iumbit-production` |
+| Helm release (plataforma) | `<component>` | `loki`, `kube-prometheus-stack`, `cert-manager` |
+| Helm release (negocio) | `<app>` | `iumbit` |
+| Helm release (tenant) | `<slug>-iumbit` | `smoke1-iumbit` |
+| Servicios (chart) | `<release>-<subcomponent>` | `loki-query-frontend`, `kube-prometheus-stack-grafana`, `<slug>-iumbit-postgresql` |
+| Namespace (tenant) | `tenant-<slug>` | `tenant-smoke1` |
+| Secret (cluster ArgoCD) | `cluster-<env>` | `cluster-dev-local` |
+
+Reglas de oro:
+1. **Nunca** cambiar un `releaseName` sin actualizar todas las referencias internas (p. ej. Promtail → `http://loki.platform-logging.svc.cluster.local:3100`).
+2. El `name` del cluster ArgoCD (campo `stringData.name`) debe coincidir con `target_environment` para que el ApplicationSet y los waits de Ansible coincidan.
+3. Un mismo cluster físico solo puede registrarse **una vez** (ver tarea de validación de duplicados en el rol gitops).
 
 **Por qué `releaseName` explícito:** Sin `releaseName`, el nombre del Helm release es el nombre de la Application (e.g. `platform-dev-local-loki`). Esto crea servicios con nombres como `platform-dev-local-loki` en lugar de `loki`, lo que rompe referencias internas (e.g. Promtail apunta a `http://loki.platform-logging.svc.cluster.local:3100`). El `releaseName` explícito asegura nombres de servicios predecibles y consistentes.
 
 **Por qué `component` en lugar de `name`:** El matrix generator fusiona variables de ambos generators. Si ambos usan `name`, el clusters generator sobreescribe el list generator (resuelve a `dev-local` en lugar de `cert-manager`). Renombrar la clave del list generator a `component` evita la colisión.
 
-**Retry policy:** El ApplicationSet incluye `syncPolicy.retry` con backoff (5s → 10s → 20s, max 3m, 5 reintentos). Esto maneja race conditions donde un componente (e.g. cert-manager) intenta crear recursos que dependen de CRDs de otro componente (e.g. ServiceMonitor de kube-prometheus-stack) que aún no se ha desplegado.
+**Retry policy:** El ApplicationSet incluye `syncPolicy.retry` con backoff (5s → 10s → 20s, max 10m, 10 reintentos) y el sync option `TimeoutSeconds=300`. Esto maneja race conditions donde un componente (e.g. cert-manager) intenta crear recursos que dependen de CRDs de otro componente (e.g. ServiceMonitor de kube-prometheus-stack) que aún no se ha desplegado, sin que una operación atascada bloquee el health-gate indefinidamente.
 
 ### 5.2 Platform Services Ingress
 
@@ -503,9 +522,12 @@ additionalPrometheusRulesMap:
 
 Ubicación: `platform/policies/`
 
+- `platform/policies/priority-classes/priority-classes.yaml` — PriorityClasses (todas las clusters)
+- `platform/policies/quotas/resource-quotas.yaml` — ResourceQuota + LimitRange (solo clusters con label `env-policies: enabled`, típicamente producción)
+
 ### ResourceQuota + LimitRange
 
-**Archivo:** `platform/policies/resource-quotas.yaml`
+**Archivo:** `platform/policies/quotas/resource-quotas.yaml`
 
 ```yaml
 apiVersion: v1
@@ -542,7 +564,7 @@ spec:
 
 ### PriorityClasses
 
-**Archivo:** `platform/policies/priority-classes.yaml`
+**Archivo:** `platform/policies/priority-classes/priority-classes.yaml`
 
 | PriorityClass | Value | Descripción |
 |---------------|-------|-------------|
@@ -550,11 +572,15 @@ spec:
 | `platform-high` | 100000 | Ingress controller, Prometheus |
 | `app-low` | 1000 | IUMBIT y otras apps (primero en evictionarse) |
 
+Se aplican **antes** de app-of-platform (Ansible bootstrap) y luego las gestiona ArgoCD (`platform-policies`). Los componentes de plataforma las consumen vía `priorityClassName` en sus values (kube-prometheus-stack, cert-manager).
+
 ### policies-app.yaml (ApplicationSet)
 
 **Archivo:** `platform/components/policies-app.yaml`
 
-Despliega `platform/policies/` via ArgoCD usando un source de tipo `directory` con path a nivel source:
+Despliega `platform/policies/priority-classes/` via ArgoCD a TODOS los clusters usando un source de tipo `directory`.
+
+Las ResourceQuota/LimitRange se despliegan por separado en `platform/components/quotas-app.yaml` (`platform-policies` vs `platform-quotas`), que solo genera Applications para clusters etiquetados `env-policies: enabled` — sin esta condición, la Application de quotas nunca llegaría a `Synced`/`Healthy` en ambientes sin el namespace destino.
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -570,13 +596,13 @@ spec:
             argocd.argoproj.io/secret-type: cluster
   template:
     metadata:
-      name: 'platform-{{name}}-policies'
+      name: 'platform-{{.name}}-policies'
     spec:
       project: enterprise-platform
       source:
         repoURL: https://github.com/JFranOFigueroa/enterprise-platform.git
         targetRevision: main
-        path: platform/policies
+        path: platform/policies/priority-classes
       destination:
         server: '{{server}}'
         namespace: default

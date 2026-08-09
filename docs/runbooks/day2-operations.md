@@ -275,7 +275,7 @@ kubectl apply -f new-secret.yaml -n apps-dev
 
 1. **Editar el archivo de ResourceQuota:**
    ```bash
-   # Editar platform/policies/resource-quotas.yaml
+   # Editar platform/policies/quotas/resource-quotas.yaml
    # Cambiar valores en spec.hard
    ```
 

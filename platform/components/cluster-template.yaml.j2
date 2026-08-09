@@ -1,17 +1,21 @@
 # Enterprise Platform - Cluster Registration (Dynamic)
 # Registers the target cluster in ArgoCD for the platform-apps ApplicationSet.
-# Rendered by Ansible using target_environment as the cluster name.
+# Rendered by Ansible using argocd_cluster_name (defaults to target_environment).
 #
 # Used by gitops role when argocd_mode == "local" and cluster != dev-local.
 # For dev-local, cluster-local.yaml is used directly (static, no rendering needed).
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cluster-{{ target_environment }}
+  name: cluster-{{ argocd_cluster_name | default(target_environment) }}
   namespace: gitops
   labels:
     argocd.argoproj.io/secret-type: cluster
+    # ResourceQuota/LimitRange (platform-quotas) only apply to clusters labeled
+    # env-policies: enabled. Defaults to true for production; override with
+    # cluster_policies_enabled.
+    {% if cluster_policies_enabled | default(target_environment == 'production') %}env-policies: enabled{% endif %}
 type: Opaque
 stringData:
-  name: {{ target_environment }}
+  name: {{ argocd_cluster_name | default(target_environment) }}
   server: https://kubernetes.default.svc

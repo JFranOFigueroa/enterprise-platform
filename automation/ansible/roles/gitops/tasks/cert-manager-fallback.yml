@@ -1,0 +1,46 @@
+---
+# cert-manager imperative fallback waits.
+# Only executed from main.yml when the primary (ArgoCD Application) path fails.
+# Unlike the primary path, these do NOT wait on Application status but on the
+# actual workload, so the deployment can still proceed (and the final gate will
+# surface the ArgoCD state at the end).
+#
+# Timeouts are deliberately bounded (no unbounded loops):
+#   - namespace existence : 30 x 10s = 5m
+#   - controller Ready    : 30 x 10s = 5m
+#   - webhook Available   : 180s per attempt, 8 retries = ~24m worst case
+
+- name: cert-manager fallback | Wait for namespace to exist
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
+  register: cm_ns_check
+  until: cm_ns_check.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: cert-manager fallback | Wait for controller pods to be Ready
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' | grep -c True
+  register: cm_running
+  until: cm_running.stdout | int >= 1
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: cert-manager fallback | Wait for webhook to be Available (bounded)
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Available deployment -l app.kubernetes.io/component=webhook
+      -n cert-manager --timeout=180s
+  register: cm_webhook_wait
+  until: cm_webhook_wait.rc == 0
+  retries: 8
+  delay: 10
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml

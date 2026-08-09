@@ -17,6 +17,8 @@ data:
   ARGOCD_INSECURE: {{ .Values.config.argocdInsecure | default "true" | quote }}
   SEALED_SECRETS_NAMESPACE: {{ .Values.config.sealedSecretsNamespace | quote }}
   SEALED_SECRETS_SERVICE: {{ .Values.config.sealedSecretsService | quote }}
+  STORAGE_CLASS: {{ .Values.config.storageClass | default "local-path" | quote }}
+  TLS_ISSUER: {{ .Values.config.tlsIssuer | default "letsencrypt-production" | quote }}
   DEFAULT_BACKEND_TAG: {{ .Values.config.defaultBackendTag | quote }}
   DEFAULT_FRONTEND_TAG: {{ .Values.config.defaultFrontendTag | quote }}
   DEFAULT_LIQUIBASE_TAG: {{ .Values.config.defaultLiquibaseTag | quote }}

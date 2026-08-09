@@ -1,0 +1,16 @@
+---
+# Enterprise Platform - Ansible Collections
+# =============================================================================
+# Required on the Ansible control node. Install with:
+#   ansible-galaxy collection install -r requirements.yml
+#
+# On Debian/Ubuntu, the `ansible` apt package already bundles community.general;
+# install explicitly for pip/ansible-core control nodes (cloud, CI runners).
+#
+# Used by:
+#   playbooks/02-network.yml  -> community.general.ufw
+#   playbooks/01-bootstrap-host.yml -> (roles use ansible.builtin / apt only)
+# =============================================================================
+collections:
+  - name: community.general
+    version: ">=8.0.0"

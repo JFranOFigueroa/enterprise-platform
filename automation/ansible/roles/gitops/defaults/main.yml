@@ -13,3 +13,12 @@ repo_clone_dest: /opt/enterprise-platform
 # Applications are defined in group_vars/all.yml and read from
 # applications/<name>/app_vars/<name>.yml
 applications: []
+
+# Convergence gate budget (FINAL GATE in tasks/main.yml).
+# A first-time production deploy pulls dozens of images (kube-prometheus-stack,
+# loki, cert-manager, apps) on the target node; 15 minutes (90x10s) is too tight
+# on a single-node VPS. Override per environment (e.g. in secrets.yml or via
+# --extra-vars) without touching the role:
+#   deployment_gate_retries=120 deployment_gate_delay=15
+deployment_gate_retries: 180
+deployment_gate_delay: 10

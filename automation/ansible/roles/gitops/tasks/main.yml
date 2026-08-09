@@ -6,6 +6,13 @@
     rke2_bin: /var/lib/rancher/rke2/bin
     rke2_kubeconfig: /etc/rancher/rke2/rke2.yaml
 
+# Decouple the ArgoCD cluster name from target_environment.
+# Defaults to target_environment (current behavior); in managed mode the real
+# cluster name can differ from the environment label.
+- name: Resolve ArgoCD cluster name
+  ansible.builtin.set_fact:
+    argocd_cluster_name: "{{ argocd_cluster_name | default(target_environment) }}"
+
 - name: Download and install Helm
   ansible.builtin.shell: |
     curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -40,14 +47,27 @@
     name: git
     state: present
 
-- name: Use local repository (if available)
+# =============================================================================
+# Repository destination resolution
+# repo_dest is used in helm/kubectl commands that run ON THE TARGET SERVER, so
+# it must be a path visible on the server:
+#   - hosts-local.yml (ansible_connection: local) -> the repo is already on the
+#     server; use project_root (controller == server).
+#   - remote SSH (hosts.yml) -> clone the repo onto the server at
+#     repo_clone_dest (the app_vars/secrets stay on the controller and are
+#     injected via helm.parameters, so nothing is lost).
+# Controller-side file lookups (template src, overlay checks) must use
+# project_root, which always points at the controller's clone.
+# =============================================================================
+- name: Use local repository (hosts-local mode)
   ansible.builtin.set_fact:
     repo_dest: "{{ project_root }}"
   when: >-
+    ansible_connection == 'local' and
     project_root is defined and project_root | length > 0 and
     (project_root + '/platform/storage/local-path-provisioner.yaml') is file
 
-- name: Clone enterprise-platform repository (fallback)
+- name: Clone enterprise-platform repository on the server (remote mode)
   ansible.builtin.git:
     repo: https://github.com/JFranOFigueroa/enterprise-platform.git
     dest: "{{ repo_clone_dest }}"
@@ -55,7 +75,7 @@
     force: true
   when: repo_dest is not defined or repo_dest | length == 0
 
-- name: Set repository destination (fallback)
+- name: Set repository destination (remote mode)
   ansible.builtin.set_fact:
     repo_dest: "{{ repo_clone_dest }}"
   when: repo_dest is not defined or repo_dest | length == 0
@@ -87,6 +107,35 @@
     cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/storage/local-path-provisioner.yaml"
   register: lpp_result
   changed_when: "'created' in lpp_result.stdout or 'configured' in lpp_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for local-path-provisioner pod to be Ready
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Ready pod -l app=local-path-provisioner
+      -n local-path-storage --timeout=180s
+  register: lpp_wait
+  until: lpp_wait.rc == 0
+  retries: 12
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Bootstrap: Apply PriorityClasses EARLY so platform components that reference
+# them (monitoring, cert-manager) never hit a missing-class scheduling error.
+# ArgoCD also manages them (platform-policies) for self-heal; both are
+# idempotent against the same manifests.
+# =============================================================================
+
+- name: Apply PriorityClasses (bootstrap)
+  ansible.builtin.command:
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/policies/priority-classes/priority-classes.yaml"
+  register: pclass_result
+  changed_when: "'created' in pclass_result.stdout or 'configured' in pclass_result.stdout"
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
@@ -180,26 +229,63 @@
 
 - name: Register cluster in ArgoCD (non-dev-local local mode)
   ansible.builtin.template:
-    src: "{{ repo_dest }}/platform/components/cluster-template.yaml.j2"
-    dest: "/tmp/cluster-{{ target_environment }}-registration.yaml"
+    src: "{{ project_root }}/platform/components/cluster-template.yaml.j2"
+    dest: "/tmp/cluster-{{ argocd_cluster_name }}-registration.yaml"
     mode: "0600"
   register: cluster_template_render
   when: argocd_mode == "local" and target_environment != "dev-local"
 
 - name: Apply cluster registration template
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/cluster-{{ target_environment }}-registration.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f /tmp/cluster-{{ argocd_cluster_name }}-registration.yaml"
   register: cluster_reg_result
   changed_when: "'created' in cluster_reg_result.stdout or 'configured' in cluster_reg_result.stdout"
   when: argocd_mode == "local" and target_environment != "dev-local"
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+# =============================================================================
+# Cluster Secret Validation (idempotency)
+# A single physical cluster MUST NOT be registered twice under different names
+# (e.g. cluster-dev-local + cluster-production pointing at the same server).
+# Doing so makes the matrix generator emit duplicate Applications for the same
+# server. Fail loudly here instead of silently duplicating platform workloads.
+# =============================================================================
+
+- name: Validate no two cluster secrets point to the same server
+  ansible.builtin.shell: |
+    set -o pipefail
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secrets -n gitops \
+      -l argocd.argoproj.io/secret-type=cluster -o json | python3 -c '
+    import base64, json, sys
+    data = json.load(sys.stdin)
+    servers = {}
+    for item in data.get("items", []):
+        name = item["metadata"]["name"]
+        raw = (item.get("data") or {}).get("server", "")
+        try:
+            server = base64.b64decode(raw).decode()
+        except Exception:
+            server = raw
+        servers.setdefault(server, []).append(name)
+    dups = {s: n for s, n in servers.items() if len(n) > 1}
+    if dups:
+        for server, names in dups.items():
+            print("DUPLICATE_SERVER: %s -> %s" % (server, ", ".join(names)))
+        sys.exit(1)
+    print("NO_DUPLICATE_CLUSTER_SERVERS")
+    '
+  register: cluster_dup_check
+  changed_when: false
+  when: argocd_mode == "local"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
 - name: Wait for cluster Secret to be visible in ArgoCD
   ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-{{ target_environment }} -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret cluster-{{ argocd_cluster_name }} -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
   register: cluster_secret_check
-  until: cluster_secret_check.stdout == "cluster-" + target_environment
+  until: cluster_secret_check.stdout == "cluster-" + argocd_cluster_name
   retries: 10
   delay: 5
   changed_when: false
@@ -244,11 +330,8 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application app-of-platform -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
   register: appofplatform_sync
-  until: >
-    appofplatform_sync.stdout == "Synced" or
-    appofplatform_sync.stdout == "OutOfSync" or
-    appofplatform_sync.stdout == "SyncPending"
-  retries: 60
+  until: appofplatform_sync.stdout == "Synced"
+  retries: 90
   delay: 10
   changed_when: false
   environment:
@@ -258,11 +341,8 @@
   ansible.builtin.shell: |
     {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application app-of-platform -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
   register: appofplatform_health
-  until: >
-    appofplatform_health.stdout == "Healthy" or
-    appofplatform_health.stdout == "Progressing" or
-    appofplatform_health.stdout == "Degraded"
-  retries: 60
+  until: appofplatform_health.stdout == "Healthy"
+  retries: 90
   delay: 10
   changed_when: false
   environment:
@@ -271,87 +351,61 @@
 # =============================================================================
 # Wait for Platform Components (cert-manager first)
 # Two strategies:
-#   1. Primary: Wait via ArgoCD Application status (declarative)
-#   2. Fallback: Wait directly for cert-manager namespace and pods (imperative)
+#   1. Primary: Wait via ArgoCD Application status (declarative, STRICT)
+#   2. Fallback: Only if the primary path fails, wait directly for cert-manager
+#      namespace and pods (imperative). Runs via block/rescue so it no longer
+#      duplicates the primary budget (previously ~5h worst case).
 # =============================================================================
 
-- name: Wait for cert-manager ArgoCD Application to appear
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
-  register: cm_app_check
-  until: cm_app_check.stdout == "platform-" + target_environment + "-cert-manager"
-  retries: 30
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+- name: Wait for cert-manager via ArgoCD (primary)
+  block:
+    - name: Wait for cert-manager ArgoCD Application to appear
+      ansible.builtin.shell: |
+        {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ argocd_cluster_name }}-cert-manager -n gitops -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+      register: cm_app_check
+      until: cm_app_check.stdout == "platform-" + argocd_cluster_name + "-cert-manager"
+      retries: 30
+      delay: 10
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Wait for cert-manager Application to be Synced
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
-  register: cm_sync_status
-  until: >
-    cm_sync_status.stdout == "Synced" or
-    cm_sync_status.stdout == "OutOfSync"
-  retries: 60
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+    - name: Wait for cert-manager Application to be Synced
+      ansible.builtin.shell: |
+        {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ argocd_cluster_name }}-cert-manager -n gitops -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown"
+      register: cm_sync_status
+      until: cm_sync_status.stdout == "Synced"
+      retries: 90
+      delay: 10
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Wait for cert-manager Application to be Healthy
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ target_environment }}-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
-  register: cm_health_status
-  until: >
-    cm_health_status.stdout == "Healthy" or
-    cm_health_status.stdout == "Progressing"
-  retries: 60
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+    - name: Wait for cert-manager Application to be Healthy
+      ansible.builtin.shell: |
+        {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ argocd_cluster_name }}-cert-manager -n gitops -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown"
+      register: cm_health_status
+      until: cm_health_status.stdout == "Healthy"
+      retries: 90
+      delay: 10
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  rescue:
+    - name: cert-manager | Primary ArgoCD wait failed - show operation state
+      ansible.builtin.shell: |
+        {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get application platform-{{ argocd_cluster_name }}-cert-manager -n gitops -o jsonpath='{.status.operationState.message}{"\n"}' 2>/dev/null || echo "application not found"
+      register: cm_op_state
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-# =============================================================================
-# cert-manager Fallback Waits (imperative)
-# If the ArgoCD Application path fails (e.g. Application never appears),
-# these waits ensure cert-manager is actually deployed before proceeding.
-# =============================================================================
+    - name: cert-manager | Primary ArgoCD wait failed - fallback to imperative waits
+      ansible.builtin.debug:
+        msg: "cert-manager did not converge via ArgoCD. Falling back to imperative checks. Last operationState: {{ cm_op_state.stdout }}"
 
-- name: Wait for cert-manager namespace to exist
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace cert-manager
-  register: cm_ns_check
-  until: cm_ns_check.rc == 0
-  retries: 30
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: Wait for cert-manager controller pods to be running
-  ansible.builtin.shell: |
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' | grep -c Running
-  register: cm_running
-  until: cm_running.stdout | int >= 1
-  retries: 30
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: Wait for cert-manager webhook to be ready
-  ansible.builtin.command:
-    cmd: >
-      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Available deployment -l app.kubernetes.io/component=webhook
-      -n cert-manager --timeout=600s
-  register: cm_webhook_wait
-  until: cm_webhook_wait.rc == 0
-  retries: 30
-  delay: 10
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+    - name: Include cert-manager imperative fallback
+      ansible.builtin.include_tasks: cert-manager-fallback.yml
 
 # =============================================================================
 # TPS ArgoCD token (ADR-0005)
@@ -385,50 +439,64 @@
     tps_active and tps_token_cur.stdout is defined and tps_token_cur.stdout | length > 0 and
     (tps_token_cur.stdout | b64decode) != 'CHANGE_ME'
 
-- name: TPS | Read ArgoCD admin password
-  ansible.builtin.command: >
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-    get secret argocd-initial-admin-secret -n gitops
-    -o jsonpath='{.data.password}'
-  register: tps_admin_b64
+# =============================================================================
+# TPS | Token generation must NEVER abort the deployment.
+# If the admin session fails (e.g. the ArgoCD admin password was rotated and
+# argocd-initial-admin-secret no longer matches), degrade gracefully: the TPS
+# deploys without a token (tenant sync triggers disabled) instead of failing
+# the whole playbook. The convergence gate still passes because the TPS
+# Application itself remains Healthy.
+# =============================================================================
+- name: TPS | Generate ArgoCD token (resilient)
   when: tps_active and argocd_tps_token is not defined
+  block:
+    - name: TPS | Read ArgoCD admin password
+      ansible.builtin.command: >
+        {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+        get secret argocd-initial-admin-secret -n gitops
+        -o jsonpath='{.data.password}'
+      register: tps_admin_b64
 
-- name: TPS | Set ArgoCD admin password fact
-  ansible.builtin.set_fact:
-    tps_admin_pass: "{{ tps_admin_b64.stdout | b64decode }}"
-  when: tps_active and argocd_tps_token is not defined
+    - name: TPS | Set ArgoCD admin password fact
+      ansible.builtin.set_fact:
+        tps_admin_pass: "{{ tps_admin_b64.stdout | b64decode }}"
 
-- name: TPS | Create ArgoCD session (admin)
-  ansible.builtin.uri:
-    url: https://127.0.0.1:30443/api/v1/session
-    method: POST
-    body_format: json
-    body:
-      username: admin
-      password: "{{ tps_admin_pass }}"
-    status_code: 200
-    validate_certs: false
-  register: tps_session
-  when: tps_active and argocd_tps_token is not defined
+    - name: TPS | Create ArgoCD session (admin)
+      ansible.builtin.uri:
+        url: https://127.0.0.1:30443/api/v1/session
+        method: POST
+        body_format: json
+        body:
+          username: admin
+          password: "{{ tps_admin_pass }}"
+        status_code: 200
+        validate_certs: false
+      register: tps_session
 
-- name: TPS | Generate ArgoCD token for account tps
-  ansible.builtin.uri:
-    url: https://127.0.0.1:30443/api/v1/account/tps/token
-    method: POST
-    body_format: json
-    body:
-      name: tps
-    headers:
-      Authorization: "Bearer {{ tps_session.json.token }}"
-    status_code: 200
-    validate_certs: false
-  register: tps_token_resp
-  when: tps_active and argocd_tps_token is not defined
+    - name: TPS | Generate ArgoCD token for account tps
+      ansible.builtin.uri:
+        url: https://127.0.0.1:30443/api/v1/account/tps/token
+        method: POST
+        body_format: json
+        body:
+          name: tps
+        headers:
+          Authorization: "Bearer {{ tps_session.json.token }}"
+        status_code: 200
+        validate_certs: false
+      register: tps_token_resp
 
-- name: TPS | Set generated token fact
-  ansible.builtin.set_fact:
-    argocd_tps_token: "{{ tps_token_resp.json.token }}"
-  when: tps_active and argocd_tps_token is not defined
+    - name: TPS | Set generated token fact
+      ansible.builtin.set_fact:
+        argocd_tps_token: "{{ tps_token_resp.json.token }}"
+  rescue:
+    - name: TPS | Token generation failed - warn and continue
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: could not generate a new ArgoCD token for the TPS
+          (likely the admin password no longer matches argocd-initial-admin-secret).
+          The TPS will deploy without a token; tenant sync triggers stay disabled.
+          Fix by rotating the token out-of-band or resetting the admin password.
 
 # =============================================================================
 # Application Deployment (Generic)
@@ -445,10 +513,117 @@
     applications is defined and applications | length > 0 and
     (app_entry.environments is not defined or target_environment in app_entry.environments)
 
+- name: Wait for cert-manager ClusterIssuer CRD to be Established
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      wait --for=condition=Established crd/clusterissuers.cert-manager.io --timeout=180s
+  register: cm_crd_wait
+  until: cm_crd_wait.rc == 0
+  retries: 12
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
 - name: Apply ClusterIssuers
   ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/certificates/clusterissuers.yaml"
+    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/certificates/issuers/clusterissuers.yaml"
   register: issuers_result
   changed_when: "'created' in issuers_result.stdout or 'configured' in issuers_result.stdout"
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
+# Monitoring | grafana-admin Secret pre-flight
+# The production kube-prometheus-stack overlay (kube-prometheus-stack-values-
+# <cluster>.yaml) references grafana.adminExistingSecret=grafana-admin. That
+# Secret is NEVER committed to Git (production credentials), so a fresh deploy
+# would leave Grafana Degraded and block the final convergence gate forever.
+#
+# If the overlay is active for this cluster AND the Secret is missing, create it
+# here so the stack converges. The password comes from secrets.yml
+# (grafana_admin_password, gitignored); if unset, default to 'admin' with a
+# loud warning so the operator rotates it after deploy.
+# =============================================================================
+- name: Monitoring | grafana-admin overlay active for this cluster
+  ansible.builtin.set_fact:
+    grafana_admin_overlay: >-
+      {{ (project_root + '/platform/monitoring/kube-prometheus-stack-values-' + argocd_cluster_name + '.yaml') is file }}
+
+- name: Monitoring | Wait for platform-monitoring namespace
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get namespace platform-monitoring -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: mono_ns_check
+  until: mono_ns_check.stdout == "platform-monitoring"
+  retries: 60
+  delay: 5
+  changed_when: false
+  when: grafana_admin_overlay
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Monitoring | Create grafana-admin Secret if missing
+  ansible.builtin.shell: |
+    set -e
+    if {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secret grafana-admin -n platform-monitoring >/dev/null 2>&1; then
+      echo "grafana-admin already exists"
+      exit 0
+    fi
+    pass="${GRAFANA_ADMIN_PASSWORD}"
+    if [ -z "$pass" ]; then
+      echo "WARNING: grafana_admin_password is not set in secrets.yml; creating grafana-admin with the default 'admin' password. Rotate it after deploy (kubectl -n platform-monitoring edit secret grafana-admin)." >&2
+      pass="admin"
+    fi
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} create secret generic grafana-admin \
+      -n platform-monitoring --from-literal=admin-user=admin --from-literal=admin-password="$pass"
+    echo "grafana-admin created"
+  environment:
+    GRAFANA_ADMIN_PASSWORD: "{{ grafana_admin_password | default('') }}"
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+  register: grafana_admin_create
+  changed_when: "'created' in grafana_admin_create.stdout"
+  when: grafana_admin_overlay
+
+# =============================================================================
+# FINAL GATE - Convergence check (STRICT)
+# The playbook only reports success when EVERY ArgoCD Application in the
+# gitops namespace is Synced AND Healthy. Any app still converging, out of
+# sync, or degraded fails the run with a report of the stuck Applications.
+#
+# Exclusions:
+#   - app-of-apps / app-of-platform are the umbrella Applications; their
+#     health is derived from the ApplicationSets they manage and does not
+#     reflect the state of the generated child Applications.
+# =============================================================================
+
+- name: Final gate - all Applications must be Synced and Healthy
+  ansible.builtin.shell: |
+    set -o pipefail
+    OUT=$(
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.status.sync.status}{"|"}{.status.health.status}{"\n"}{end}'
+    )
+    echo "$OUT"
+    failed=0
+    while IFS='|' read -r name sync health; do
+      [ -z "$name" ] && continue
+      case "$name" in
+        app-of-apps|app-of-platform) continue ;;
+      esac
+      if [ "$sync" != "Synced" ] || [ "$health" != "Healthy" ]; then
+        echo "NOT CONVERGED: $name sync=$sync health=$health"
+        failed=1
+      fi
+    done <<< "$OUT"
+    if [ "$failed" -eq 0 ]; then
+      echo "ALL_APPLICATIONS_SYNCED_AND_HEALTHY"
+    fi
+    exit "$failed"
+  register: final_gate
+  until: final_gate.rc == 0
+  retries: "{{ deployment_gate_retries }}"
+  delay: "{{ deployment_gate_delay }}"
+  changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml

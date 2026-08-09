@@ -19,7 +19,7 @@ all:
         master-01:
           ansible_host: 127.0.0.1
           ansible_connection: local
-          node_ip: "{{ onprem_master_node_ip }}"
+          node_ip: "{{ onprem_master_node_ip | default(ansible_default_ipv4.address, true) }}"
       vars:
         rke2_type: server
         node_role: control-plane

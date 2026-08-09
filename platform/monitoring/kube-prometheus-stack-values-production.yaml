@@ -1,0 +1,29 @@
+# Enterprise Platform - Prometheus Stack Values (production overlay)
+# =============================================================================
+# Loaded automatically by platform-apps.yaml AFTER the base values when this
+# file exists for the cluster: platform/monitoring/kube-prometheus-stack-values-<cluster>.yaml
+# (see IgnoreMissingValueFiles sync option).
+#
+# Contains production-only settings: real domain, TLS issuer and admin secret.
+# NOTE: `grafana-admin` Secret must exist in namespace platform-monitoring with
+# keys `admin-user` and `admin-password` (created out-of-band, never in Git).
+# =============================================================================
+
+grafana:
+  adminExistingSecret: grafana-admin
+  grafana.ini:
+    server:
+      root_url: "https://gfa.iumbit.com.mx"
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+    hosts:
+      - gfa.iumbit.com.mx
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - gfa.iumbit.com.mx

@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-08-01
+> Última actualización: 2026-08-09
 
 ---
 
@@ -137,9 +137,18 @@ enterprise-platform/
   - **Registro Ansible:** tenant-provisioning en `group_vars/all.yml` (solo production) + filtro `app_entry.environments` en gitops role para no desplegar TPS en dev-local
   - **Template de referencia:** `tools/templates/tenant-values.yaml.example` (shape del values generado por tenant)
   - ADR-0005 → **Aceptado** con sección de implementación
+- [x] **Credenciales del repo tenants vía chart (commit `bd464e6`):** Secret `tenants-repo-credentials` (ns `gitops`, label `argocd.argoproj.io/secret-type: repository`) generado por el chart del TPS (`templates/argocd-repository-secret.yaml`) con `type=git`, `url=TENANTS_REPO_URL`, `username=x-access-token`, `password=TENANTS_REPO_TOKEN`. Argo CD usa este Secret para clonar `enterprise-platform-tenants` (ApplicationSet `tenant-apps` + source `$values`). Se decidió NO duplicar la credencial en el rol genérico `gitops` ni en `group_vars/secrets.yml`: todo lo específico de una app vive en `applications/<app>/` (mismo patrón de `templates/rbac.yaml`, que ya crea recursos en ns `gitops` vía `metadata.namespace`).
+- [x] **Fix SealedSecret strict-scope (commit `cc4055d`):** El controller SealedSecrets desencripta usando el label `namespace/name` **del propio recurso SealedSecret**; `spec.template.metadata.name` se ignora (issue bitnami-labs/sealed-secrets#1543, confirmado en el código fuente del controller v0.30.0, `sealedsecret_expansion.go`). El TPS sella con `kubeseal --name {release}-secrets --namespace tenant-<slug> --scope strict`, por lo que el SealedSecret debe llamarse igual que el Secret destino: `{fullname}-secrets` (antes `{fullname}-sealed-secrets` → error `no key could decrypt secret`). Chart IUMBIT y `docs/environments-architecture.md` alineados.
+- [x] **Smoke test del TPS (2026-08-01/03):** TPS desplegado y API probada en producción: `GET /healthz` → `{'status':'ok'}`, `GET /api/v1/tenants` → `[]`, `POST {"tenantId":"smoke1"}` → `202` con `namespace: tenant-smoke1`, `release: smoke1-iumbit`, `application: tenant-smoke1`. Se validó la cadena Git → ApplicationSet → chart IUMBIT (SealedSecret + StatefulSet generados). El `POST` funciona; la convergencia hasta `Healthy` quedó pendiente por el bloqueo del `(cached)` (resuelto abajo).
+- [x] **Lección health-gate de Argo CD:** El wait `waiting for healthy state of apps/StatefulSet/<...>` **no tiene timeout**; la operación atascada ocupa el slot de sync del app y bloquea cualquier sync posterior (incluido selfHeal). Desbloqueo: borrar la Application (`kubectl -n gitops delete app tenant-<slug> --wait=false`) y dejar que el ApplicationSet la regenere. Borrar desde la **UI puede dejar el app en `Terminating`** (finalizer) → remover finalizers (`kubectl -n gitops patch app <app> --type merge -p '{"metadata":{"finalizers":null}}'`).
+- [x] **Lección "Manifest generation error (cached)":** El repo-server de Argo CD cachea errores de `helm template`. Tras un re-deploy fresco puede servir un error viejo cacheado (p. ej. `Error: open .../tenants/smoke1/values.yaml: no such file or directory` aunque el archivo SÍ esté commiteado en el repo tenants). Fix manual: anotar el app con `argocd.argoproj.io/refresh=hard` y, si persiste, `kubectl -n gitops rollout restart deploy/argocd-repo-server`.
+- [x] **Fix automático del `(cached)` en el TPS (2026-08-09):** El race raíz es el ApplicationSet git generator (`requeueAfterSeconds: 30`) creando la Application del tenant antes de que el repo-server haya hecho checkout del commit nuevo → el render falla contra un árbol obsoleto y el error queda cacheado por commit (selfHeal reintentándolo sin fin). El TPS ahora ejecuta `wait_for_application → hard_refresh (PATCH argocd.argoproj.io/refresh=hard) → sync` y un **self-heal en background** (~50s) que detecta `(cached)`/`Manifest generation error`/`ComparisonError` y re-aplica refresh + sync. Archivos: `tenant-provisioning-source/src/gitops.py` (helpers + retry genérico) y `src/main.py` (flujo de creación vía `BackgroundTasks`); tests en `tests/test_gitops.py`; documentado en `troubleshooting.md` §18. **Pendiente:** rebuild de la imagen TPS + redeploy para que el fix llegue a producción, y smoke test con un tenant nuevo.
+
+**Resuelto (2026-08-03 → 2026-08-09):** el re-provisioning de `smoke1` respondía `failed` con `Manifest generation error (cached)` por el `values.yaml`. Diagnóstico confirmado: el commit del TPS incluye el archivo (verificado en el tree remoto) — era un error de caché del repo-server, no un archivo faltante. Se implementó el fix automático en el TPS descrito arriba (hard-refresh preventivo + self-heal). Para el `tenant-smoke1` **existente**, aplicar una vez el remedio manual del runbook §18 (`kubectl -n gitops annotate app tenant-smoke1 argocd.argoproj.io/refresh=hard --overwrite`); los tenants **nuevos** quedan cubiertos por el fix.
 
 **Pendiente:**
-- [ ] Tests de humo
+- [ ] Rebuild + redeploy de la imagen TPS con el fix del `(cached)` (imagen actual en producción es anterior) y verificar `ARGOCD_TOKEN` inyectado por el rol gitops en el Secret `tenant-provisioning-secrets`
+- [ ] Tests de humo completos: crear un tenant **nuevo** (ej. `smoke2`) → `GET /api/v1/tenants/smoke2` → `healthy`, luego `DELETE` y verificar limpieza. Nota: `smoke1` ya existe, el TPS es idempotente y no re-ejecuta el fix sobre él.
 - [ ] Deploy en QA/Staging/Production (requiere clusters cloud)
 - [ ] **Cloud cluster registration:** Auto-registro de clusters remotos en management ArgoCD
   - Crear template `platform/components/cluster-remote.yaml.j2`
@@ -152,11 +161,14 @@ enterprise-platform/
 - [ ] **Multi-tenant operativo (Fase 0, dependencias externas):**
   - [x] Crear repositorio `enterprise-platform-tenants` en GitHub (estructura `tenants/` + README)
   - [ ] Wildcard DNS `*.iumbit.com.mx` apuntando al ingress del clúster
-  - [ ] PAT de GitHub con push al repo tenants → `TENANTS_REPO_TOKEN` en `app_vars/tenant-provisioning-production.yml`
-  - [ ] Token de cuenta de servicio ArgoCD → `ARGOCD_TOKEN` en `app_vars/tenant-provisioning-production.yml`
+  - [x] PAT de GitHub con push al repo tenants → `TENANTS_REPO_TOKEN` en `app_vars/tenant-provisioning-production.yml` (**pendiente rotar:** el token quedó expuesto en un chat durante el smoke test)
+  - [x] Token de cuenta de servicio ArgoCD → `ARGOCD_TOKEN`: el rol gitops lo genera/reutiliza automáticamente tras el deploy (bloque resiliente en `roles/gitops/tasks/main.yml`, sección "TPS ArgoCD token") e inyecta el valor real vía `helm.parameters` — no requiere editar `app_vars` manualmente. `values.yaml`/`values-production.yaml` conservan `CHANGE_ME` solo como placeholder. **Pendiente:** confirmar el Secret `tenant-provisioning-secrets` en el próximo deploy; sin él, `wait_for_application`/`hard_refresh`/`trigger_argocd_sync` se omiten y ArgoCD converge por `automated.sync`.
   - [x] Imagen `nitesoftmx/tenant-provisioning:1.0.0` publicada en DockerHub (`./build.sh 1.0.0` en `/home/pacs/TPS-BUILDS/tenant-provisioning-source/`)
-  - [ ] Desplegar TPS (run-ansible production) y probar API
-  - [ ] Integración del módulo en IUMI que dispara `POST /api/v1/tenants` (lado IUMI)
+  - [x] Desplegar TPS (run-ansible production) y probar API
+  - [ ] Integración del módulo en IUMI que dispara `POST /api/v1/tenants` (lado IUMI) — el TPS es alcanzable internamente en `http://tenant-provisioning.tenant-provisioning.svc:8080`
+- [ ] **Alinear versiones SealedSecrets:** el chart `sealed-secrets` 2.17.3 (repo bitnami) desplegó el controller **v0.30.0** (no 0.38.4 como decía la doc); el TPS pinnea `kubeseal 0.38.4` en su Dockerfile. Son funcionalmente compatibles (kubeseal solo encripta con el cert público), pero conviene subir el chart a 2.19.x (controller 0.38.4) o bajar kubeseal a 0.30.0.
+- [ ] **Frontend OAuth por tenant:** el TPS no setea `VUE_APP_GOOGLE_CLIENT_ID` / `VUE_APP_MICROSOFT_CLIENT_ID` / `VUE_APP_MICROSOFT_TENANT_ID` del configmap IUMBIT (defaults `""` / `common`). Si el login social se dispara desde Vue, hay que exponer esos client IDs por tenant en el chart.
+- [ ] **Exposición de la TPS:** el ingress existe (`tps.iumbit.com.mx`) pero `ingress.enabled: false` en `values.yaml` y `values-production.yaml`; además la API **no tiene autenticación**. Decidir si IUMBIT usa solo la URL interna del cluster o se habilita/protege el ingress (TLS + auth/IP allowlist/token).
 - [ ] **Desacoplar context-path de versión en IUMBIT:** el TPS genera rutas con prefijo de versión (`/check-it-<tag>/api/v1/` e ingress con ese path) porque la imagen de IUMBIT aún no sirve `/api/v1/` sin context-path. Pendiente corregir el empaquetado de la imagen y alinear a `/api/v1/` (ver `docs/cd-contract.md`).
 
 ---
@@ -225,7 +237,7 @@ enterprise-platform/
 | Loki | 6.24.0 | Logs (singleBinary, filesystem storage) |
 | Promtail | 6.16.6 | Log shipping |
 | local-path-provisioner | v0.0.36 | Default StorageClass |
-| SealedSecrets | 2.17.3 (controller 0.38.4) | Secrets GitOps (multi-tenant) |
+| SealedSecrets | 2.17.3 (controller **v0.30.0**; kubeseal TPS 0.38.4 — pendiente alinear) | Secrets GitOps (multi-tenant) |
 
 ### Capa de Políticas (Resource Protection)
 | Componente | Tipo | Propósito |

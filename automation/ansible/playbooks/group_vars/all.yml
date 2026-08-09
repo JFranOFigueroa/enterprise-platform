@@ -46,6 +46,7 @@ common_packages:
   - lsb-release
   - chrony
   - ufw
+  - locales
 
 # ======================================
 # On-Premise Configuration

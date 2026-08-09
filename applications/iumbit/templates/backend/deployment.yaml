@@ -27,10 +27,14 @@ spec:
             - -c
             - |
               echo "Waiting for PostgreSQL to be ready..."
-              until nc -z {{ include "iumbit.fullname" . }}-postgresql 5432; do
-                echo "PostgreSQL not ready yet, waiting..."
+              for i in $(seq 1 90); do
+                if nc -z {{ include "iumbit.fullname" . }}-postgresql 5432; then
+                  break
+                fi
+                echo "PostgreSQL not ready yet (attempt $i/90), waiting..."
                 sleep 2
               done
+              nc -z {{ include "iumbit.fullname" . }}-postgresql 5432 || { echo "ERROR: PostgreSQL did not become ready in time"; exit 1; }
               echo "PostgreSQL is ready"
               # Give Liquibase time to complete migrations
               sleep 15

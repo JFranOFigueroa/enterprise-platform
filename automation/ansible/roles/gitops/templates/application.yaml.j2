@@ -32,9 +32,12 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # Per-operation timeout: prevents an ArgoCD sync from hanging forever on
+      # a stuck resource (previously the health-gate could stall indefinitely).
+      - TimeoutSeconds=300
     retry:
-      limit: 5
+      limit: 10
       backoff:
         duration: 5s
         factor: 2
-        maxDuration: 3m
+        maxDuration: 10m
