@@ -36,15 +36,15 @@ backend:
   javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
   resources:
     requests:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 400m #200m
+      memory: 1024Mi #512Mi
     limits:
-      cpu: 800m
-      memory: 1Gi
+      cpu: 2 #800m
+      memory: 2Gi #1Gi
   hpa:
     enabled: true
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 85
     behavior:
@@ -74,11 +74,11 @@ frontend:
   replicas: 1
   resources:
     requests:
-      cpu: 20m
-      memory: 32Mi
-    limits:
-      cpu: 100m
+      cpu: 40m
       memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
   hpa:
     enabled: true
     minReplicas: 1

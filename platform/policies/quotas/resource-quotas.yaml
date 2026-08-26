@@ -39,5 +39,5 @@ spec:
         cpu: 500m
         memory: 512Mi
       max:
-        cpu: "1"
-        memory: 2Gi
+        cpu: "16"
+        memory: 32Gi
