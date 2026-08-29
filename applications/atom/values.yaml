@@ -30,7 +30,7 @@ backend:
   enabled: true
   image:
     repository: nitesoftmx/atom-wildfly-app
-    tag: "1.0.0-dev.2"
+    tag: "1.0.0-dev.4"
   port: 8080
   replicas: 1
   javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
@@ -69,7 +69,7 @@ frontend:
   enabled: true
   image:
     repository: nitesoftmx/atom-nginx-web
-    tag: "1.0.0-dev.3"
+    tag: "1.0.0-dev.4"
   port: 8080
   replicas: 1
   resources:
@@ -78,7 +78,7 @@ frontend:
       memory: 64Mi
     limits:
       cpu: 200m
-      memory: 128Mi
+      memory: 256Mi
   hpa:
     enabled: true
     minReplicas: 1

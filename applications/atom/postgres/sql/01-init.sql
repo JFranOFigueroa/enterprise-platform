@@ -194,6 +194,7 @@ CREATE TABLE warehouse.movements (
     movement_date timestamp without time zone NOT NULL,
     movement_reference_id integer NOT NULL,
     unit_price double precision,
+    purchase_cost double precision,
     batch character varying(50) NOT NULL,
     expiration date,
     quantity integer NOT NULL,
