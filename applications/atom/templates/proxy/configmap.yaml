@@ -11,6 +11,14 @@ data:
     server {
         listen {{ .Values.proxy.port }};
 
+        # El proxy escucha en el puerto interno (8080) pero se expone por el
+        # NodePort externo (31081). nginx arma redirects internos (p.ej. agregar
+        # slash en /pos -> /pos/) como URLs absolutas con $server_port (8080),
+        # puerto que no esta expuesto y rompe la recarga. Con absolute_redirect
+        # off esos redirects se emiten como rutas relativas (/pos/) y el
+        # navegador las resuelve contra el puerto externo correcto (31081).
+        absolute_redirect off;
+
         header_filter_by_lua_block {
             local cookies = ngx.header["Set-Cookie"]
             if cookies then
