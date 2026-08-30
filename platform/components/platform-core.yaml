@@ -35,10 +35,10 @@ spec:
               elements:
                 - component: local-path-provisioner
                   path: platform/storage
-                  directoryRecurse: "false"
+                  directoryRecurse: false
                 - component: clusterissuers
                   path: platform/certificates/issuers
-                  directoryRecurse: "false"
+                  directoryRecurse: false
   template:
     metadata:
       name: "platform-{{ .name }}-{{ .component }}"
@@ -49,7 +49,7 @@ spec:
           targetRevision: main
           path: "{{ .path }}"
           directory:
-            recurse: {{ .directoryRecurse }}
+            recurse: {{ .directoryRecurse | toYaml }}
       destination:
         server: "{{ .server }}"
         namespace: ""

@@ -96,15 +96,15 @@ enterprise-platform/
 │   │   ├── project.yaml
 │   │   ├── platform-apps.yaml
 │   │   ├── tenant-apps.yaml          # ApplicationSet de tenants (ADR-0005)
-│   │   ├── policies-app.yaml         # ApplicationSet for policies (NEW)
-│   │   └── cluster-template.yaml.j2  # Cluster registration (template)
+│   │   └── policies-app.yaml         # ApplicationSet for policies (NEW)
 │   ├── security/
 │   │   └── sealed-secrets-values.yaml # SealedSecrets controller (ADR-0005)
 │   ├── policies/                     # Resource protection (NEW)
 │   │   ├── resource-quotas.yaml      # ResourceQuota + LimitRange
 │   │   └── priority-classes.yaml     # PriorityClasses
 │   ├── registration/
-│   │   └── cluster-local.yaml              # Cluster registration (dev-local)
+│   │   ├── cluster-local.yaml              # Cluster registration (dev-local)
+│   │   └── cluster-template.yaml.j2        # Cluster registration (template, non-dev-local)
 │   ├── gitops/
 │   ├── ingress/
 │   ├── logging/

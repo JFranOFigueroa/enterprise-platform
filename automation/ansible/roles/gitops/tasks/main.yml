@@ -229,7 +229,7 @@
 
 - name: Register cluster in ArgoCD (non-dev-local local mode)
   ansible.builtin.template:
-    src: "{{ project_root }}/platform/components/cluster-template.yaml.j2"
+    src: "{{ project_root }}/platform/registration/cluster-template.yaml.j2"
     dest: "/tmp/cluster-{{ argocd_cluster_name }}-registration.yaml"
     mode: "0600"
   register: cluster_template_render
