@@ -35,10 +35,8 @@ spec:
               elements:
                 - component: local-path-provisioner
                   path: platform/storage
-                  directoryRecurse: false
                 - component: clusterissuers
                   path: platform/certificates/issuers
-                  directoryRecurse: false
   template:
     metadata:
       name: "platform-{{ .name }}-{{ .component }}"
@@ -49,7 +47,10 @@ spec:
           targetRevision: main
           path: "{{ .path }}"
           directory:
-            recurse: {{ .directoryRecurse | toYaml }}
+            # recurse=false: los paths (platform/storage, platform/certificates/issuers)
+            # son planos (sin subdirectorios). Cambiar a true SOLO si se amplía la
+            # estructura de carpetas de alguno de estos paths y se necesita recursividad.
+            recurse: false
       destination:
         server: "{{ .server }}"
         namespace: ""
