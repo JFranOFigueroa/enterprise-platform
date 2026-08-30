@@ -64,6 +64,29 @@ data:
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
+        # Deep-link SPA del POS: al recargar /pos (o /pos/) la peticion NO es una
+        # llamada API sino una ruta interna del frontend React (path="/pos").
+        # Estos matches EXACTOS tienen prioridad sobre el prefijo /pos/ de abajo,
+        # de modo que la SPA se sirve desde el frontend (try_files -> /index.html
+        # -> React-router renderiza <Pos/>) y no se desvia al backend, que no
+        # sirve la SPA (404 en GET /sicc-pos/pos/).
+        location = /pos {
+            proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location = /pos/ {
+            proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # API REST del POS (GET/POST /pos/sales/..., /pos/orders/...) -> backend
         location /pos/ {
             rewrite ^/pos/(.*)$ /sicc-pos/pos/$1 break;
             proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
