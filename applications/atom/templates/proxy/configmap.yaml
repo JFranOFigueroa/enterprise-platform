@@ -22,6 +22,20 @@ data:
                     ngx.header["Set-Cookie"] = cookies:gsub(";%s*Secure", "")
                 end
             end
+
+            -- Fix redirects del backend (modulo POS): al recargar /pos, el
+            -- backend WildFly emite un Location con su puerto interno :8080,
+            -- que no esta expuesto. Reescribirlo al NodePort real :31081.
+            local loc = ngx.header["Location"]
+            if loc then
+                if type(loc) == "table" then
+                    for i, v in ipairs(loc) do
+                        loc[i] = v:gsub("://185%.253%.155%.4:8080", "://185.253.155.4:31081")
+                    end
+                else
+                    ngx.header["Location"] = loc:gsub("://185%.253%.155%.4:8080", "://185.253.155.4:31081")
+                end
+            end
         }
 
         location /core/ {
