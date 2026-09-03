@@ -180,8 +180,7 @@ CREATE TABLE warehouse.input_orders (
     fk_origin_warehouse_id integer,
     fk_origin_client_id integer,
     origin_other character varying(255),
-    fk_output_order_id integer,
-    return_reason character varying(100)
+    fk_output_order_id integer
 );
 
 --
@@ -199,6 +198,7 @@ CREATE TABLE warehouse.movements (
     expiration date,
     quantity integer NOT NULL,
     available boolean DEFAULT true NOT NULL,
+    status character varying(100),
     fk_product_id integer NOT NULL,
     fk_user_id integer NOT NULL,
     fk_warehouse_id integer NOT NULL
