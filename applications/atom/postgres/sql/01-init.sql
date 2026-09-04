@@ -139,13 +139,13 @@ CREATE TABLE public.system_config (
 --
 CREATE TABLE public.system_notifications (
     id serial NOT NULL,
-    fk_user_id integer NOT NULL,
     title character varying(150) NOT NULL,
     message text NOT NULL,
     notification_type character varying(50) NOT NULL,
     reference_id integer,
     metadata text,
     is_read boolean DEFAULT false,
+    fk_user_id integer NOT NULL,
     create_date timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -174,12 +174,12 @@ CREATE TABLE warehouse.input_orders (
     status smallint NOT NULL,
     available boolean DEFAULT true NOT NULL,
     observations text NOT NULL,
-    fk_origin_supplier_id integer,
     input_type smallint DEFAULT 1 NOT NULL,
+    origin_other character varying(255),
+    fk_origin_supplier_id integer,
     fk_destination_warehouse_id integer NOT NULL,
     fk_origin_warehouse_id integer,
     fk_origin_client_id integer,
-    origin_other character varying(255),
     fk_output_order_id integer
 );
 
@@ -214,13 +214,13 @@ CREATE TABLE warehouse.output_orders (
     available boolean DEFAULT true NOT NULL,
     observations text NOT NULL,
     output_type smallint DEFAULT 1 NOT NULL,
+    destination_other character varying(255),
+    scrap_reason character varying(100),
+    fk_input_order_id integer,
     fk_origin_warehouse_id integer,
     fk_destination_warehouse_id integer,
     fk_destination_client_id integer,
-    fk_destination_supplier_id integer,
-    destination_other character varying(255),
-    fk_input_order_id integer,
-    scrap_reason character varying(100)
+    fk_destination_supplier_id integer
 );
 
 --
@@ -237,8 +237,9 @@ CREATE TABLE warehouse.products (
     brand character varying(100),
     model character varying(100),
     color character varying(50),
-    sku character varying(100),
-    internal_sku character varying(100)
+    sku character varying(100) NOT NULL,
+    internal_sku character varying(100),
+    image bytea
 );
 
 --
@@ -246,14 +247,25 @@ CREATE TABLE warehouse.products (
 --
 CREATE TABLE warehouse.transfer_orders (
     id_transfer_order serial NOT NULL,
-    fk_origin_warehouse_id integer NOT NULL,
-    fk_destination_warehouse_id integer NOT NULL,
     status smallint NOT NULL,
     create_date timestamp without time zone NOT NULL,
-    receive_date timestamp without time zone,
     observations text NOT NULL,
-    fk_user_id integer NOT NULL,
-    available boolean DEFAULT true NOT NULL
+    available boolean DEFAULT true NOT NULL,
+    fk_origin_warehouse_id integer NOT NULL,
+    fk_destination_warehouse_id integer NOT NULL
+);
+
+--
+-- Name: movement_status_history; Type: TABLE; Schema: warehouse; Owner: -
+--
+CREATE TABLE warehouse.movement_status_history (
+    id_movement_status_history SERIAL NOT NULL,
+    order_id INTEGER NOT NULL,
+    order_type VARCHAR(50) NOT NULL,
+    previous_status SMALLINT,
+    new_status SMALLINT NOT NULL,
+    change_date TIMESTAMP NOT NULL,
+    fk_changed_by_user_id INTEGER NOT NULL
 );
 
 --
@@ -353,10 +365,28 @@ ALTER TABLE ONLY warehouse.products
     ADD CONSTRAINT pk_products PRIMARY KEY (id_product);
 
 --
+-- Name: products products_product_ean_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+ALTER TABLE ONLY warehouse.products
+    ADD CONSTRAINT products_product_ean_key UNIQUE (product_ean);
+
+--
+-- Name: products products_sku_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+ALTER TABLE ONLY warehouse.products
+    ADD CONSTRAINT products_sku_key UNIQUE (sku);
+
+--
 -- Name: transfer_orders transfer_orders_pkey; Type: CONSTRAINT; Schema: warehouse; Owner: -
 --
 ALTER TABLE ONLY warehouse.transfer_orders
     ADD CONSTRAINT transfer_orders_pkey PRIMARY KEY (id_transfer_order);
+
+--
+-- Name: movement_status_history movement_status_history_pkey; Type: CONSTRAINT; Schema: warehouse; Owner: -
+--
+ALTER TABLE ONLY warehouse.movement_status_history
+    ADD CONSTRAINT movement_status_history_pkey PRIMARY KEY (id_movement_status_history);
 
 --
 -- Name: roles_permissions fk_roles_permissions_permission; Type: FK CONSTRAINT; Schema: administration; Owner: -
@@ -491,10 +521,10 @@ ALTER TABLE ONLY warehouse.transfer_orders
     ADD CONSTRAINT transfer_orders_fk_origin_warehouse_id_fkey FOREIGN KEY (fk_origin_warehouse_id) REFERENCES administration.warehouses(id_warehouse);
 
 --
--- Name: transfer_orders transfer_orders_fk_user_id_fkey; Type: FK CONSTRAINT; Schema: warehouse; Owner: -
+-- Name: movement_status_history movement_status_history_fk_user_id_fkey; Type: FK CONSTRAINT; Schema: warehouse; Owner: -
 --
-ALTER TABLE ONLY warehouse.transfer_orders
-    ADD CONSTRAINT transfer_orders_fk_user_id_fkey FOREIGN KEY (fk_user_id) REFERENCES administration.users(id_user);
+ALTER TABLE ONLY warehouse.movement_status_history
+    ADD CONSTRAINT movement_status_history_fk_user_id_fkey FOREIGN KEY (fk_changed_by_user_id) REFERENCES administration.users(id_user);
 
 --
 -- Initial Data Inserts
