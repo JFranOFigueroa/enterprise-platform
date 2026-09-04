@@ -11,10 +11,11 @@ metadata:
   namespace: gitops
   labels:
     argocd.argoproj.io/secret-type: cluster
-    # ResourceQuota/LimitRange (platform-quotas) only apply to clusters labeled
-    # env-policies: enabled. Defaults to true for production; override with
-    # cluster_policies_enabled.
-    {% if cluster_policies_enabled | default(target_environment == 'production') %}env-policies: enabled{% endif %}
+    # env-policies: enables platform-quotas (ResourceQuota/LimitRange) for this
+    # cluster. Defaults to true for production; override with cluster_policies_enabled.
+    {%- if cluster_policies_enabled | default(target_environment == 'production') %}
+    env-policies: enabled
+    {%- endif %}
 type: Opaque
 stringData:
   name: {{ argocd_cluster_name | default(target_environment) }}
