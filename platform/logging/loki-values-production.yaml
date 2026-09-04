@@ -1,0 +1,14 @@
+# Enterprise Platform - Loki Values (production overlay)
+# =============================================================================
+# Loaded automatically by platform-apps.yaml AFTER the base values when this
+# file exists for the cluster:
+#   platform/logging/loki-values-<cluster>.yaml
+#
+# This overlay is intentionally empty (neutral): no production-only settings
+# for Loki yet, so it inherits the base values unchanged. It exists ONLY
+# because the ApplicationSet always appends this valueFile to the Helm chart;
+# a missing file would break `helm template` (ComparisonError) and prevent the
+# Application from reaching Synced status.
+#
+# Add production-only overrides here as needed (retention, storage, replicas).
+# -----------------------------------------------------------------------------
