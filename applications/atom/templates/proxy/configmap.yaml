@@ -33,15 +33,16 @@ data:
 
             -- Fix redirects del backend (modulo POS): al recargar /pos, el
             -- backend WildFly emite un Location con su puerto interno :8080,
-            -- que no esta expuesto. Reescribirlo al NodePort real :31081.
+            -- que no esta expuesto externamente. Reescribirlo al base publico
+            -- (host configurable via values.proxy.locationRewrite).
             local loc = ngx.header["Location"]
             if loc then
                 if type(loc) == "table" then
                     for i, v in ipairs(loc) do
-                        loc[i] = v:gsub("://185%.253%.155%.4:8080", "://185.253.155.4:31081")
+                        loc[i] = v:gsub("://{{ .Values.proxy.locationRewrite.from }}", "://{{ .Values.proxy.locationRewrite.to }}")
                     end
                 else
-                    ngx.header["Location"] = loc:gsub("://185%.253%.155%.4:8080", "://185.253.155.4:31081")
+                    ngx.header["Location"] = loc:gsub("://{{ .Values.proxy.locationRewrite.from }}", "://{{ .Values.proxy.locationRewrite.to }}")
                 end
             end
         }

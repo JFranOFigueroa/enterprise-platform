@@ -1,6 +1,24 @@
 # Enterprise Platform - ATOM Production Values
-# Production uses the base values.yaml defaults.
-# This file exists for consistency with the IUMBIT pattern
-# and can be used to override specific values for production.
+# Ingress + TLS for atom.sytes.net via cert-manager (letsencrypt-production).
+# The ingress routes ALL traffic to the OpenResty proxy, which internally
+# distributes to the backend/frontend (see templates/proxy/configmap.yaml).
 global:
   environment: production
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: atom.sytes.net
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: proxy
+          servicePort: 8080
+  tls:
+    - secretName: atom-tls
+      hosts:
+        - atom.sytes.net

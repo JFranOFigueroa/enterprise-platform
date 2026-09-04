@@ -118,6 +118,12 @@ proxy:
     limits:
       cpu: 100m
       memory: 64Mi
+  # Rewrites the Location header emitted by the backend (WildFly) so redirects
+  # resolve against the public base instead of the internal :8080 port.
+  # Used by the OpenResty Lua in templates/proxy/configmap.yaml.
+  locationRewrite:
+    from: "185.253.155.4:8080"
+    to: "atom.sytes.net"
 
 secrets:
   dbUsername: "CHANGE_ME"
@@ -127,4 +133,11 @@ config:
   serverPort: "8080"
   dbUrl: "jdbc:postgresql://atom-postgresql:5432/atom"
   nodeEnv: "production"
-  viteBackendUrl: "http://185.253.155.4:31081"
+  viteBackendUrl: "https://atom.sytes.net"
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts: []
+  tls: []
