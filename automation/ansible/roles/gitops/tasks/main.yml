@@ -252,34 +252,51 @@
 # server. Fail loudly here instead of silently duplicating platform workloads.
 # =============================================================================
 
-- name: Validate no two cluster secrets point to the same server
-  ansible.builtin.shell: |
-    set -o pipefail
-    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get secrets -n gitops \
-      -l argocd.argoproj.io/secret-type=cluster -o json | python3 -c '
-    import base64, json, sys
-    data = json.load(sys.stdin)
-    servers = {}
-    for item in data.get("items", []):
-        name = item["metadata"]["name"]
-        raw = (item.get("data") or {}).get("server", "")
-        try:
-            server = base64.b64decode(raw).decode()
-        except Exception:
-            server = raw
-        servers.setdefault(server, []).append(name)
-    dups = {s: n for s, n in servers.items() if len(n) > 1}
-    if dups:
-        for server, names in dups.items():
-            print("DUPLICATE_SERVER: %s -> %s" % (server, ", ".join(names)))
-        sys.exit(1)
-    print("NO_DUPLICATE_CLUSTER_SERVERS")
-    '
-  register: cluster_dup_check
+- name: List cluster registration Secrets
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      get secrets -n gitops -l argocd.argoproj.io/secret-type=cluster -o json
+  register: cluster_secrets_list
   changed_when: false
   when: argocd_mode == "local"
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Build list of cluster Secrets with their server endpoint
+  ansible.builtin.set_fact:
+    cluster_servers_flat: >-
+      {%- set data = (cluster_secrets_list.stdout | default('{}')) | from_json -%}
+      {%- set flat = [] -%}
+      {%- for item in data.get('items', []) -%}
+      {%-   set raw = (item.get('data') or {}).get('server', '') -%}
+      {%-   set server = (raw | b64decode) if (raw | length > 0) else '(unknown)' -%}
+      {%-   set _ = flat.append({'server': server, 'name': item.metadata.name}) -%}
+      {%- endfor -%}
+      {{ flat }}
+  when: argocd_mode == "local"
+  changed_when: false
+
+- name: Count cluster Secrets vs unique servers
+  ansible.builtin.set_fact:
+    cluster_server_total: "{{ cluster_servers_flat | length }}"
+    cluster_server_unique: "{{ cluster_servers_flat | map(attribute='server') | unique | list | length }}"
+  when: argocd_mode == "local"
+  changed_when: false
+
+- name: Fail if two cluster secrets point to the same server
+  ansible.builtin.assert:
+    that:
+      - cluster_server_total == cluster_server_unique
+    fail_msg: >-
+      DUPLICATE_CLUSTER_SERVERS detected:
+      {%- for group in cluster_servers_flat | groupby('server') %}
+      server '{{ group[0] }}' used by {{ group[1] | map(attribute='name') | join(', ') }}
+      {%- if not loop.last %}; {% endif %}{%- endfor %}.
+      A single physical cluster must not be registered twice under different
+      names (e.g. cluster-dev-local + cluster-production pointing at the same
+      server). Remove the duplicate cluster Secret before proceeding.
+  when: argocd_mode == "local"
 
 - name: Wait for cluster Secret to be visible in ArgoCD
   ansible.builtin.shell: |
@@ -597,33 +614,40 @@
 #     reflect the state of the generated child Applications.
 # =============================================================================
 
-- name: Final gate - all Applications must be Synced and Healthy
-  ansible.builtin.shell: |
-    set -o pipefail
-    OUT=$(
-      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get applications -n gitops \
-        -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.status.sync.status}{"|"}{.status.health.status}{"\n"}{end}'
-    )
-    echo "$OUT"
-    failed=0
-    while IFS='|' read -r name sync health; do
-      [ -z "$name" ] && continue
-      case "$name" in
-        app-of-apps|app-of-platform) continue ;;
-      esac
-      if [ "$sync" != "Synced" ] || [ "$health" != "Healthy" ]; then
-        echo "NOT CONVERGED: $name sync=$sync health=$health"
-        failed=1
-      fi
-    done <<< "$OUT"
-    if [ "$failed" -eq 0 ]; then
-      echo "ALL_APPLICATIONS_SYNCED_AND_HEALTHY"
-    fi
-    exit "$failed"
+- name: Final gate - wait for all Applications to be Synced and Healthy
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      get applications -n gitops -o json
   register: final_gate
-  until: final_gate.rc == 0
+  until: >-
+    {{ ((final_gate.stdout | default('{}') | from_json).get('items', [])
+       | rejectattr('metadata.name', 'in', ['app-of-apps', 'app-of-platform'])
+       | selectattr('status.sync.status', 'ne', 'Synced') | list | length == 0)
+       and
+       ((final_gate.stdout | default('{}') | from_json).get('items', [])
+       | rejectattr('metadata.name', 'in', ['app-of-apps', 'app-of-platform'])
+       | selectattr('status.health.status', 'ne', 'Healthy') | list | length == 0) }}
   retries: "{{ deployment_gate_retries }}"
   delay: "{{ deployment_gate_delay }}"
   changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Final gate - report Applications still not converged
+  ansible.builtin.fail:
+    msg: >-
+      NOT_CONVERGED - the following Applications are not yet Synced and Healthy:
+      {%- set data = (final_gate.stdout | default('{}')) | from_json -%}
+      {%- for item in data.get('items', []) if
+         (item.metadata.name not in ['app-of-apps', 'app-of-platform'])
+         and (item.status.sync.status != 'Synced' or item.status.health.status != 'Healthy') %}
+      {{ item.metadata.name }} (sync={{ item.status.sync.status }}, health={{ item.status.health.status }})
+      {%- if not loop.last %}; {% endif %}{%- endfor %}.
+  when:
+    - (final_gate.stdout | default('{}') | from_json).get('items', [])
+      | rejectattr('metadata.name', 'in', ['app-of-apps', 'app-of-platform'])
+      | selectattr('status.sync.status', 'ne', 'Synced') | list | length != 0
+      or (final_gate.stdout | default('{}') | from_json).get('items', [])
+      | rejectattr('metadata.name', 'in', ['app-of-apps', 'app-of-platform'])
+      | selectattr('status.health.status', 'ne', 'Healthy') | list | length != 0
