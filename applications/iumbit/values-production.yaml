@@ -75,11 +75,11 @@ frontend:
   vueAppMicrosoftTenantId: "common"
   resources:
     requests:
-      cpu: 25m #100
-      memory: 32Mi #128
+      cpu: 200m #100
+      memory: 512Mi #128
     limits:
-      cpu: 50m #500
-      memory: 64Mi #256
+      cpu: 400m #500
+      memory: 1024Mi #256
   hpa:
     enabled: true
     minReplicas: 1
