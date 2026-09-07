@@ -36,8 +36,8 @@ backend:
   javaOpts: "-Xms256m -Xmx512m -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=256m"
   resources:
     requests:
-      cpu: 2 #200m
-      memory: 2048Mi #512Mi
+      cpu: 1 #200m
+      memory: 1024Mi #512Mi
     limits:
       cpu: 4 #800m
       memory: 4Gi #1Gi
