@@ -123,7 +123,7 @@ proxy:
   # Used by the OpenResty Lua in templates/proxy/configmap.yaml.
   locationRewrite:
     from: "185.253.155.4:8080"
-    to: "atom.sytes.net"
+    to: "stradtix.sytes.net"
 
 secrets:
   dbUsername: "CHANGE_ME"
@@ -133,7 +133,7 @@ config:
   serverPort: "8080"
   dbUrl: "jdbc:postgresql://atom-postgresql:5432/atom"
   nodeEnv: "production"
-  viteBackendUrl: "https://atom.sytes.net"
+  viteBackendUrl: "https://stradtix.sytes.net"
 
 ingress:
   enabled: false

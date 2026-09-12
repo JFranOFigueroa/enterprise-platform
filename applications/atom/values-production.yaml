@@ -1,5 +1,5 @@
 # Enterprise Platform - ATOM Production Values
-# Ingress + TLS for atom.sytes.net via cert-manager (letsencrypt-production).
+# Ingress + TLS for stradtix.sytes.net via cert-manager (letsencrypt-production).
 # The ingress routes ALL traffic to the OpenResty proxy, which internally
 # distributes to the backend/frontend (see templates/proxy/configmap.yaml).
 global:
@@ -12,7 +12,7 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt-production
   hosts:
-    - host: atom.sytes.net
+    - host: stradtix.sytes.net 
       paths:
         - path: /
           pathType: Prefix
@@ -21,4 +21,4 @@ ingress:
   tls:
     - secretName: atom-tls
       hosts:
-        - atom.sytes.net
+        - stradtix.sytes.net
