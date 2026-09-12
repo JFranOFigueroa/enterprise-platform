@@ -48,7 +48,7 @@ data:
         }
 
         location /core/ {
-            rewrite ^/core/(.*)$ /sicc/core/$1 break;
+            rewrite ^/core/(.*)$ /stradtix/core/$1 break;
             proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -57,7 +57,7 @@ data:
         }
 
         location /wms/ {
-            rewrite ^/wms/(.*)$ /sicc-wms/wms/$1 break;
+            rewrite ^/wms/(.*)$ /stradtix-wms/wms/$1 break;
             proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -70,7 +70,7 @@ data:
         # Estos matches EXACTOS tienen prioridad sobre el prefijo /pos/ de abajo,
         # de modo que la SPA se sirve desde el frontend (try_files -> /index.html
         # -> React-router renderiza <Pos/>) y no se desvia al backend, que no
-        # sirve la SPA (404 en GET /sicc-pos/pos/).
+        # sirve la SPA (404 en GET /stradtix-pos/pos/).
         location = /pos {
             proxy_pass http://{{ include "atom.fullname" . }}-frontend:{{ .Values.frontend.port }};
             proxy_set_header Host $host;
@@ -89,7 +89,7 @@ data:
 
         # API REST del POS (GET/POST /pos/sales/..., /pos/orders/...) -> backend
         location /pos/ {
-            rewrite ^/pos/(.*)$ /sicc-pos/pos/$1 break;
+            rewrite ^/pos/(.*)$ /stradtix-pos/pos/$1 break;
             proxy_pass http://{{ include "atom.fullname" . }}-backend:{{ .Values.backend.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
