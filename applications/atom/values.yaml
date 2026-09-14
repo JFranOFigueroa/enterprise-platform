@@ -17,11 +17,11 @@ postgresql:
       storageClassName: local-path
     resources:
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 500m
+        memory: 512Mi
       limits:
-        cpu: 150m
-        memory: 256Mi
+        cpu: 1
+        memory: 1.5Gi
     initSql:
       enabled: true
       configMapName: ""
