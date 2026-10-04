@@ -22,3 +22,18 @@ applications: []
 #   deployment_gate_retries=120 deployment_gate_delay=15
 deployment_gate_retries: 180
 deployment_gate_delay: 10
+
+# Application conditions that indicate an error no amount of waiting can fix
+# (checked by tasks/check-app-hard-errors.yml before the retry loops).
+#
+# ComparisonError: ArgoCD could not render the manifests (invalid Helm values,
+# missing chart, bad multi-source ref). Always fatal - retrying is pointless.
+#
+# SyncError: the sync attempt itself failed (e.g. Git unreachable). Usually
+# transient, so it is listed here to fail fast rather than burn the gate
+# budget, but it IS recoverable. Drop it from the list for a more tolerant
+# run that lets the retry loop heal transient fetch failures:
+#   hard_error_condition_types: ['ComparisonError']
+hard_error_condition_types:
+  - ComparisonError
+  - SyncError

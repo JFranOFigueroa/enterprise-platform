@@ -417,6 +417,12 @@
       environment:
         KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
+    - name: Include unrecoverable-error check (cert-manager)
+      ansible.builtin.include_tasks: check-app-hard-errors.yml
+      vars:
+        app_selector: "platform-{{ argocd_cluster_name }}-cert-manager"
+        check_label: "cert-manager"
+
     - name: cert-manager | Primary ArgoCD wait failed - fallback to imperative waits
       ansible.builtin.debug:
         msg: "cert-manager did not converge via ArgoCD. Falling back to imperative checks. Last operationState: {{ cm_op_state.stdout }}"
@@ -612,7 +618,18 @@
 #   - app-of-apps / app-of-platform are the umbrella Applications; their
 #     health is derived from the ApplicationSets they manage and does not
 #     reflect the state of the generated child Applications.
+#
+# Fail-fast: before entering the retry loop we check for ComparisonError /
+# SyncError conditions (see tasks/check-app-hard-errors.yml). Those never
+# converge, so retrying them just burns the whole budget before reporting a
+# sync.status of Unknown with no hint about the cause.
 # =============================================================================
+
+- name: Final gate - detect unrecoverable errors (fail fast)
+  ansible.builtin.include_tasks: check-app-hard-errors.yml
+  vars:
+    app_selector: ""
+    check_label: "Final gate"
 
 - name: Final gate - wait for all Applications to be Synced and Healthy
   ansible.builtin.command:

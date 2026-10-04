@@ -1,0 +1,62 @@
+---
+# Detect ArgoCD Applications carrying an unrecoverable error condition.
+#
+# These Applications sit at sync.status=Unknown and stay there: ArgoCD never
+# gets a manifest set to compare, or never completes a fetch. A retry loop
+# against them cannot converge, so this check fails immediately with the
+# underlying reason instead of spending the whole gate budget discovering it.
+#
+# Parameters (set via `vars:` on include_tasks):
+#   app_selector: ""         -> inspect every Application (default)
+#   app_selector: "<name>"   -> inspect a single Application
+#   check_label:  "<label>"  -> prefix for the task names in the log
+#
+# Fails the play when a matching Application reports one of the condition
+# types listed in `hard_error_condition_types` (see defaults/main.yml). There
+# is intentionally no rescue: a hard error must abort the run.
+#
+# Included from:
+#   - the cert-manager wait rescue in main.yml, to stop the imperative
+#     fallback from reporting success just because the previous revision's
+#     pods are still running.
+#   - immediately before the final gate, to short-circuit its retry loop.
+
+- name: "{{ check_label | default('Applications') }} | Probe Application conditions"
+  ansible.builtin.command:
+    cmd: >
+      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+      get applications -n gitops -o json
+  register: hard_errors_probe
+  changed_when: false
+  failed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: "{{ check_label | default('Applications') }} | Collect unrecoverable errors"
+  ansible.builtin.set_fact:
+    hard_errors_report: >-
+      {%- set found = [] -%}
+      {%- for item in (hard_errors_probe.stdout | default('{}') | from_json).get('items', []) -%}
+      {%- if not app_selector | default('') or item.metadata.name == app_selector -%}
+      {%- for cond in (item.get('status') or {}).get('conditions') or [] -%}
+      {%- if cond.type | default('') in hard_error_condition_types -%}
+      {%- set _ = found.append(item.metadata.name ~ ' [' ~ cond.type ~ '] ' ~ (cond.message | default(''))) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ found | join(' || ') }}
+  when: hard_errors_probe.rc | default(1) == 0
+
+- name: "{{ check_label | default('Applications') }} | Reset report when probe failed"
+  ansible.builtin.set_fact:
+    hard_errors_report: ""
+  when: hard_errors_probe.rc | default(1) != 0
+
+- name: "{{ check_label | default('Applications') }} | Fail on unrecoverable errors"
+  ansible.builtin.fail:
+    msg: >-
+      UNRECOVERABLE - waiting cannot resolve these ArgoCD Application errors.
+      Fix the reported cause, push it to the repo, then re-run the playbook.
+      {{ hard_errors_report | default('') }}
+  when: hard_errors_report | default('') | length > 0

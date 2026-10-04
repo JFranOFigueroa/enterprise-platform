@@ -8,8 +8,6 @@ crds:
 
 replicaCount: 2
 
-priorityClassName: platform-high
-
 prometheus:
   enabled: true
   servicemonitor:
