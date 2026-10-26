@@ -1,0 +1,324 @@
+---
+# Enterprise Platform - validation pipeline
+#
+# ADR-0002 declares the model: Git -> CI -> Registry -> GitOps -> K8s.
+# This workflow is the CI leg. It validates only; it never deploys.
+#
+# The job that matters most is `helm-render`. A values key that the chart schema
+# rejects (for example `priorityClassName` at the root of cert-manager v1.17.1)
+# does not fail locally, does not fail at `helm install`, and surfaces hours later
+# as an ArgoCD ComparisonError that leaves sync.status=Unknown while health stays
+# Healthy. Rendering every values combination here turns that class of failure
+# from a 45 minute cluster debugging session into a red pull request.
+
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref: validation is fast and the queue is
+# not interesting.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  yamllint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          config_file: .yamllint
+
+  helm-render:
+    name: helm render ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every broken combination, not just the first.
+      fail-fast: false
+      matrix:
+        include:
+          # --- Platform components (remote charts, version pinned in
+          #     platform/components/platform-apps.yaml) ------------------
+          - name: cert-manager/base
+            chart: cert-manager
+            version: v1.17.1
+            repo: https://charts.jetstack.io
+            namespace: cert-manager
+            values: platform/certificates/cert-manager-values.yaml
+          - name: cert-manager/production
+            chart: cert-manager
+            version: v1.17.1
+            repo: https://charts.jetstack.io
+            namespace: cert-manager
+            values: >-
+              platform/certificates/cert-manager-values.yaml
+              platform/certificates/cert-manager-values-production.yaml
+
+          - name: kube-prometheus-stack/base
+            chart: kube-prometheus-stack
+            version: 72.5.1
+            repo: https://prometheus-community.github.io/helm-charts
+            namespace: platform-monitoring
+            values: platform/monitoring/kube-prometheus-stack-values.yaml
+          - name: kube-prometheus-stack/production
+            chart: kube-prometheus-stack
+            version: 72.5.1
+            repo: https://prometheus-community.github.io/helm-charts
+            namespace: platform-monitoring
+            values: >-
+              platform/monitoring/kube-prometheus-stack-values.yaml
+              platform/monitoring/kube-prometheus-stack-values-production.yaml
+
+          - name: loki/base
+            chart: loki
+            version: 6.24.0
+            repo: https://grafana.github.io/helm-charts
+            namespace: platform-logging
+            values: platform/logging/loki-values.yaml
+          - name: loki/production
+            chart: loki
+            version: 6.24.0
+            repo: https://grafana.github.io/helm-charts
+            namespace: platform-logging
+            values: >-
+              platform/logging/loki-values.yaml
+              platform/logging/loki-values-production.yaml
+
+          - name: promtail/base
+            chart: promtail
+            version: 6.16.6
+            repo: https://grafana.github.io/helm-charts
+            namespace: platform-logging
+            values: platform/logging/promtail-values.yaml
+          - name: promtail/production
+            chart: promtail
+            version: 6.16.6
+            repo: https://grafana.github.io/helm-charts
+            namespace: platform-logging
+            values: >-
+              platform/logging/promtail-values.yaml
+              platform/logging/promtail-values-production.yaml
+
+          - name: metrics-server/base
+            chart: metrics-server
+            version: 3.12.0
+            repo: https://kubernetes-sigs.github.io/metrics-server/
+            namespace: kube-system
+            values: platform/monitoring/metrics-server-values.yaml
+          - name: metrics-server/production
+            chart: metrics-server
+            version: 3.12.0
+            repo: https://kubernetes-sigs.github.io/metrics-server/
+            namespace: kube-system
+            values: >-
+              platform/monitoring/metrics-server-values.yaml
+              platform/monitoring/metrics-server-values-production.yaml
+
+          - name: sealed-secrets/base
+            chart: sealed-secrets
+            version: 2.19.1
+            repo: https://bitnami.github.io/sealed-secrets
+            namespace: platform-sealed-secrets
+            values: platform/security/sealed-secrets-values.yaml
+          - name: sealed-secrets/production
+            chart: sealed-secrets
+            version: 2.19.1
+            repo: https://bitnami.github.io/sealed-secrets
+            namespace: platform-sealed-secrets
+            values: >-
+              platform/security/sealed-secrets-values.yaml
+              platform/security/sealed-secrets-values-production.yaml
+
+          # --- ArgoCD itself (installed by the gitops role, not ArgoCD) ----
+          - name: argocd
+            chart: argo-cd
+            version: 7.3.0
+            repo: https://argoproj.github.io/argo-helm
+            namespace: gitops
+            values: >-
+              platform/gitops/argocd-values.yaml
+              platform/gitops/argocd-rbac-values.yaml
+
+          # --- Application charts (in-repo) --------------------------------
+          # NOTE: applications/iumbit/values-dev-secrets.yaml is gitignored
+          # (.gitignore: **/values-*-secrets.yaml) and must never be rendered
+          # here; the files below are listed explicitly rather than globbed so
+          # that a local secrets overlay cannot leak into a log.
+          - name: iumbit/default
+            chart: ./applications/iumbit
+            namespace: apps-dev
+            values: applications/iumbit/values.yaml
+          - name: iumbit/dev
+            chart: ./applications/iumbit
+            namespace: apps-dev
+            values: >-
+              applications/iumbit/values.yaml
+              applications/iumbit/values-dev.yaml
+          - name: iumbit/qa
+            chart: ./applications/iumbit
+            namespace: apps-qa
+            values: >-
+              applications/iumbit/values.yaml
+              applications/iumbit/values-qa.yaml
+          - name: iumbit/staging
+            chart: ./applications/iumbit
+            namespace: apps-staging
+            values: >-
+              applications/iumbit/values.yaml
+              applications/iumbit/values-staging.yaml
+          - name: iumbit/production
+            chart: ./applications/iumbit
+            namespace: apps-production
+            values: >-
+              applications/iumbit/values.yaml
+              applications/iumbit/values-production.yaml
+
+          - name: atom/default
+            chart: ./applications/atom
+            namespace: apps-production
+            values: applications/atom/values.yaml
+          - name: atom/production
+            chart: ./applications/atom
+            namespace: apps-production
+            values: >-
+              applications/atom/values.yaml
+              applications/atom/values-production.yaml
+
+          - name: tenant-provisioning/default
+            chart: ./applications/tenant-provisioning
+            namespace: tenant-provisioning
+            values: applications/tenant-provisioning/values.yaml
+          - name: tenant-provisioning/production
+            chart: ./applications/tenant-provisioning
+            namespace: tenant-provisioning
+            values: >-
+              applications/tenant-provisioning/values.yaml
+              applications/tenant-provisioning/values-production.yaml
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: Add remote chart repositories
+        if: ${{ ! startsWith(matrix.chart, './') }}
+        run: |
+          set -euo pipefail
+          # De-duplicate the repo list; several components share a repo.
+          echo '${{ matrix.repo }}' >> /tmp/repos.txt
+          sort -u /tmp/repos.txt -o /tmp/repos.txt
+          while read -r repo; do
+            helm repo add --force-update "$(echo "$repo" | sed 's#https://##; s#[^a-zA-Z0-9]#-#g')" "$repo"
+          done < /tmp/repos.txt
+          helm repo update
+
+      - name: Render manifests
+        run: |
+          set -euo pipefail
+          args=()
+          # Empty VERSION for the in-repo charts, which have no pinned version.
+          if [ -n "${VERSION:-}" ]; then
+            args+=(--version "${VERSION}")
+          fi
+          for v in $VALUES; do
+            args+=("-f" "$v")
+          done
+          echo "chart:     $CHART ${VERSION:+(version $VERSION)}"
+          echo "namespace: $NAMESPACE"
+          echo "values:    $VALUES"
+          # This is the gate that matters: `helm template` evaluates the chart's
+          # values.schema.json, so a key the chart rejects fails here instead of
+          # becoming an ArgoCD ComparisonError hours later in the cluster.
+          helm template "$NAME" "$CHART" -n "$NAMESPACE" "${args[@]}" \
+            > /tmp/rendered.yaml
+          echo "rendered $(wc -l < /tmp/rendered.yaml) lines"
+        env:
+          NAME: ${{ matrix.name }}
+          CHART: ${{ matrix.chart }}
+          VERSION: ${{ matrix.version }}
+          NAMESPACE: ${{ matrix.namespace }}
+          VALUES: ${{ matrix.values }}
+
+      - name: Validate rendered manifests against the Kubernetes schema
+        # Non-blocking on day one: the baseline for the app charts is not known
+        # yet. Flip to blocking (drop this line) once a green run is established.
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          docker run --rm -i ghcr.io/yannh/kubeconform:v0.6.7 \
+            -strict -summary -ignore-missing-schemas < /tmp/rendered.yaml
+
+  helm-lint:
+    name: helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      # yamllint ignores applications/*/templates/ because Go template syntax
+      # is not parseable YAML. This job is the coverage for those files.
+      - name: Lint in-repo charts
+        run: |
+          set -euo pipefail
+          for chart in applications/iumbit applications/atom applications/tenant-provisioning; do
+            echo "::group::helm lint $chart"
+            helm lint "$chart"
+            echo "::endgroup::"
+          done
+
+  ansible-syntax:
+    name: ansible syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ansible-core and the required collection
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install ansible-core
+          ansible-galaxy collection install -r automation/ansible/requirements.yml
+
+      - name: Syntax check every playbook
+        run: |
+          set -euo pipefail
+          cd automation/ansible
+          for pb in playbooks/*.yml; do
+            echo "::group::$pb"
+            ansible-playbook --syntax-check -i inventory/onprem/hosts-local.yml "$pb"
+            echo "::endgroup::"
+          done
+
+  shell-scripts:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint the bootstrap wrapper
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning \
+            automation/ansible/run-ansible.sh \
+            tests/smoke/verify-deployment.sh

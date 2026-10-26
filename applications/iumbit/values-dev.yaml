@@ -82,7 +82,7 @@ ingress:
           pathType: Prefix
           serviceName: backend
           servicePort: 8080
-    - host: attribute-inch-had-appropriate.trycloudflare.com 
+    - host: attribute-inch-had-appropriate.trycloudflare.com
       paths:
         - path: /
           pathType: Prefix

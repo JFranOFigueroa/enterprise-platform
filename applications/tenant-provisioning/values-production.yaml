@@ -48,7 +48,7 @@ secrets:
   argocdToken: "CHANGE_ME"
 
 ingress:
-  enabled: false
+  enabled: true
   className: nginx
   annotations: {}
   hosts:

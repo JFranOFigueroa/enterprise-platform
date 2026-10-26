@@ -1,7 +1,7 @@
 # Enterprise Platform - Context
 
 > Contexto acumulado del proyecto: arquitectura, decisiones, progreso, y conocimiento acumulado.
-> Última actualización: 2026-08-09
+> Última actualización: 2026-10-03
 
 ---
 
@@ -129,7 +129,7 @@ enterprise-platform/
   - Resources: request 256Mi, limit 512Mi para evitar OOM
   - Aumentado `backoffLimit` para reintentos
 - [x] **ADR-0005 (Multi-Tenant GitOps) implementado:** Arquitectura de aprovisionamiento automático de tenants para IUMI
-  - **SealedSecrets:** SealedSecrets controller como componente de plataforma (ns `platform-sealed-secrets`, chart bitnami-labs/sealed-secrets v2.17.3) + values en `platform/security/sealed-secrets-values.yaml`
+  - **SealedSecrets:** SealedSecrets controller como componente de plataforma (ns `platform-sealed-secrets`, chart bitnami-labs/sealed-secrets v2.19.1) + values en `platform/security/sealed-secrets-values.yaml`
   - **Chart IUMBIT multi-tenant:** `templates/secrets.yaml` con SealedSecret condicional (`secrets.sealed=true` + `encryptedData`); Secret plano solo para uso local
   - **ApplicationSet de tenants:** `platform/components/tenant-apps.yaml` genera una Application por `tenants/*` del repo `enterprise-platform-tenants`, desplegando IUMBIT en `tenant-<slug>` con `releaseName: <slug>-iumbit`
   - **Tenant Provisioning Service (TPS):** `applications/tenant-provisioning/` — chart Helm (deployment, service, configmap, secrets, rbac, hpa, ingress) que referencia la imagen `nitesoftmx/tenant-provisioning`. El **código fuente y el build de la imagen NO viven en el repo**: están en la máquina de build en `/home/pacs/TPS-BUILDS/tenant-provisioning-source/` (git local, `build.sh` manual, imagen versionada)
@@ -146,8 +146,67 @@ enterprise-platform/
 
 **Resuelto (2026-08-03 → 2026-08-09):** el re-provisioning de `smoke1` respondía `failed` con `Manifest generation error (cached)` por el `values.yaml`. Diagnóstico confirmado: el commit del TPS incluye el archivo (verificado en el tree remoto) — era un error de caché del repo-server, no un archivo faltante. Se implementó el fix automático en el TPS descrito arriba (hard-refresh preventivo + self-heal). Para el `tenant-smoke1` **existente**, aplicar una vez el remedio manual del runbook §18 (`kubectl -n gitops annotate app tenant-smoke1 argocd.argoproj.io/refresh=hard --overwrite`); los tenants **nuevos** quedan cubiertos por el fix.
 
+### Fase 3: Endurecimiento operativo (2026-10-03)
+
+Auditoría arquitectónica sobre documentación, Ansible y ArgoCD. La estrategia del
+proyecto es correcta; el fallo era **operativo**: la frontera Ansible/ArgoCD
+nunca quedó definida, así que varios objetos tenían dos escritores.
+
+Decisión: **Ansible sólo bootstrapea; ArgoCD es dueño del estado continuo.**
+
+- [x] **cert-manager no sincronizaba (causa raíz):** el chart v1.17.1 rechaza
+  `priorityClassName` en la raíz del values (`Additional property
+  priorityClassName is not allowed`). El `priorityClassName: platform-high`
+  anidado bajo `prometheus.prometheusSpec` de kube-prometheus **no** se ve
+  afectado. Síntoma engañoso: la Application queda `Healthy` pero
+  `sync.status=Unknown` con `ComparisonError`, y el `rescue` del role lo reporta
+  como timeout genérico tras 15 min. Fix: eliminar la clave del values base.
+- [x] **Gate fail-fast reutilizable:** nuevo
+  `roles/gitops/tasks/check-app-hard-errors.yml` (reusable, parametrizable vía
+  `hard_error_condition_types`, default `[ComparisonError, SyncError]`) que
+  distingue error real de espera normal. Integrado en el rescue de cert-manager
+  y en el final gate, para que el próximo fallo de este tipo se reporte en
+  segundos en vez de 45 minutos.
+- [x] **Frontera Ansible/ArgoCD (doble gestión):** eliminados los 3
+  `kubectl apply` que hacía Ansible sobre `local-path-provisioner`,
+  PriorityClasses y ClusterIssuers. En su lugar, esperas acotadas sobre objetos
+  que ArgoCD crea. La cabecera del role documenta la frontera y la excepción.
+  Nota: esperar sólo el objeto `StorageClass` no basta — los PVC no hacen bind
+  sin el pod del provisioner, así que se espera también su `Ready`.
+- [x] **Bug en `run-ansible.sh`:** `PLAYBOOK_RC` se leía *después* de
+  `ansible-playbook`, y bajo `set -e` el script moría en el comando fallido sin
+  poder imprimir diagnóstico. El fix SSH de Vagrant/WSL se aplicaba a cloud y
+  on-prem, donde `.vagrant/machines` no existe. Se eliminó el parseo y
+  reinyección de `target_environment` (los extra-vars ya se pasan por
+  `ansible-playbook`). Temp inventory y claves SSH ahora en directorios `700` con
+  `trap ... EXIT`; el inventory temporal ya no es legible por otros usuarios.
+- [x] **CI (`.github/workflows/validate.yml`, 5 jobs):** yamllint, `helm lint`,
+  `helm template` de 22 combinaciones (base + overlay por componente, más los
+  charts in-repo), `ansible-playbook --syntax-check` y shellcheck.
+  `helm template` es el gate que importa: evalúa `values.schema.json`, que es
+  exactamente donde fallaba cert-manager. Falla en el PR, no 45 min después en
+  el clúster.
+- [x] **`.yamllint`:** pensado para fallar con defects reales, no con ruido.
+  Excluye `applications/*/templates/` (la sintaxis `{{ }}` de Helm no es YAML
+  parseable) y cubre esas 35 plantillas con `helm lint`. Excluye `#cloud-config`
+  y `#!/bin/sh`, donde un espacio cambiaría el significado. `line-length` y
+  `document-start` desactivados por el estilo real del repo.
+- [x] **Limpieza de artefactos muertos:** `platform/ingress/nginx-values.yaml`
+  (un segundo NGINX Ingress habría peleado por los puertos 80/443 con el
+  `rke2-ingress-nginx` bundled) y `platform/charts/` (residuo local no
+  trackeado).
+- [x] **`docs/architecture/platform-topology.md` reescrito:** los namespaces
+  listados (`ingress-system`, `monitoring`, `logging`, `storage`, `security`)
+  no existen; los reales llevan prefijo `platform-`. También documenta que
+  `apps-*` son particiones de **un** clúster, no clusters separados, y que
+  `apps-production` (no `apps-prod`) es el nombre correcto.
+- [x] **Chart sealed-secrets** pinneado a 2.19.1 (ver arriba).
+
 **Pendiente:**
 - [ ] Rebuild + redeploy de la imagen TPS con el fix del `(cached)` (imagen actual en producción es anterior) y verificar `ARGOCD_TOKEN` inyectado por el rol gitops en el Secret `tenant-provisioning-secrets`
+- [ ] **Rotar el PAT de GitHub** del repo `enterprise-platform-tenants`: quedó expuesto en un chat durante el smoke test. Sigue pendiente desde 2026-08-09.
+- [ ] **Deriva de docs vs values en Grafana (detectada 2026-10-03):** tres docs afirman que Grafana se sirve en `https://gfa.iumbit.com.mx` con `root_url` configurado (`context.md`, `deployment-guide.md`, `runbooks/monitoring.md`, `runbooks/troubleshooting.md`), pero el values real
+  (`platform/monitoring/kube-prometheus-stack-values.yaml:59`) sigue con `hosts: [grafana.localhost]` y **no tiene ningún `root_url`**. Alguien registró el fix en las docs pero no llegó a los values (o se revirtió). Hay que decidir cuál es la verdad: si es `gfa.iumbit.com.mx`, aplicar el cambio en los values (y el overlay de producción); si es `grafana.localhost`, corregir las cuatro referencias. Decisión del owner, no un cambio de documentación.
 - [ ] Tests de humo completos: crear un tenant **nuevo** (ej. `smoke2`) → `GET /api/v1/tenants/smoke2` → `healthy`, luego `DELETE` y verificar limpieza. Nota: `smoke1` ya existe, el TPS es idempotente y no re-ejecuta el fix sobre él.
 - [ ] Deploy en QA/Staging/Production (requiere clusters cloud)
 - [ ] **Cloud cluster registration:** Auto-registro de clusters remotos en management ArgoCD
@@ -166,7 +225,7 @@ enterprise-platform/
   - [x] Imagen `nitesoftmx/tenant-provisioning:1.0.0` publicada en DockerHub (`./build.sh 1.0.0` en `/home/pacs/TPS-BUILDS/tenant-provisioning-source/`)
   - [x] Desplegar TPS (run-ansible production) y probar API
   - [ ] Integración del módulo en IUMI que dispara `POST /api/v1/tenants` (lado IUMI) — el TPS es alcanzable internamente en `http://tenant-provisioning.tenant-provisioning.svc:8080`
-- [ ] **Alinear versiones SealedSecrets:** el chart `sealed-secrets` 2.17.3 (repo bitnami) desplegó el controller **v0.30.0** (no 0.38.4 como decía la doc); el TPS pinnea `kubeseal 0.38.4` en su Dockerfile. Son funcionalmente compatibles (kubeseal solo encripta con el cert público), pero conviene subir el chart a 2.19.x (controller 0.38.4) o bajar kubeseal a 0.30.0.
+- [x] **Alinear versiones SealedSecrets:** el chart quedó pinneado en **2.19.1** en `platform/components/platform-apps.yaml` (controller 0.38.4), coincidiendo con el `kubeseal 0.38.4` del Dockerfile del TPS. El clúster aún sirve el release 2.17.3 (controller v0.30.0) porque el cambio aún no se ha commiteado; ArgoCD lo aplicará automáticamente en el próximo sync de la Application.
 - [ ] **Frontend OAuth por tenant:** el TPS no setea `VUE_APP_GOOGLE_CLIENT_ID` / `VUE_APP_MICROSOFT_CLIENT_ID` / `VUE_APP_MICROSOFT_TENANT_ID` del configmap IUMBIT (defaults `""` / `common`). Si el login social se dispara desde Vue, hay que exponer esos client IDs por tenant en el chart.
 - [ ] **Exposición de la TPS:** el ingress existe (`tps.iumbit.com.mx`) pero `ingress.enabled: false` en `values.yaml` y `values-production.yaml`; además la API **no tiene autenticación**. Decidir si IUMBIT usa solo la URL interna del cluster o se habilita/protege el ingress (TLS + auth/IP allowlist/token).
 - [ ] **Desacoplar context-path de versión en IUMBIT:** el TPS genera rutas con prefijo de versión (`/check-it-<tag>/api/v1/` e ingress con ese path) porque la imagen de IUMBIT aún no sirve `/api/v1/` sin context-path. Pendiente corregir el empaquetado de la imagen y alinear a `/api/v1/` (ver `docs/cd-contract.md`).
@@ -237,7 +296,7 @@ enterprise-platform/
 | Loki | 6.24.0 | Logs (singleBinary, filesystem storage) |
 | Promtail | 6.16.6 | Log shipping |
 | local-path-provisioner | v0.0.36 | Default StorageClass |
-| SealedSecrets | 2.17.3 (controller **v0.30.0**; kubeseal TPS 0.38.4 — pendiente alinear) | Secrets GitOps (multi-tenant) |
+| SealedSecrets | chart 2.19.1 (repo ya pinneado; el clúster sigue en 2.17.3/controller **v0.30.0** hasta el próximo sync; kubeseal TPS 0.38.4) | Secrets GitOps (multi-tenant) |
 
 ### Capa de Políticas (Resource Protection)
 | Componente | Tipo | Propósito |

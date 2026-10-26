@@ -1,0 +1,56 @@
+---
+# Lint rules for the Enterprise Platform repository.
+#
+# Scope note: this deliberately checks for real defects (broken indentation,
+# missing space after #, invalid booleans) and stays silent on formatting that
+# the repository does not enforce today. Turning on stricter cosmetic rules
+# would produce hundreds of pre-existing failures on day one and get the
+# pipeline ignored.
+
+extends: default
+
+ignore: |
+  .git/
+  docs/archive/
+  # Vendored or generated Helm content
+  **/charts/
+  **/*.tgz
+  # Helm templates are Go templates, not YAML: `{{ .Values.x }}` is not
+  # parseable YAML. yamllint cannot validate them; `helm lint` in the
+  # helm-render job is the correct gate for these.
+  applications/*/templates/
+
+rules:
+  # The repo carries long PrometheusRule expressions and Kubernetes manifests
+  # where wrapping hurts readability more than it helps.
+  line-length: disable
+
+  # Every file in the repo starts with `---` or is a plain scalar document;
+  # requiring it would flag all of them.
+  document-start: disable
+
+  # YAML 1.1 treats yes/no/on/off as booleans, which silently turns
+  # `nginx: off` into true. Catch that.
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: true
+
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 1
+    # `#cloud-config` is the cloud-init schema header and `#!` opens a script
+    # inside a block scalar. Both are syntax, not prose, and cannot take a
+    # space without changing their meaning.
+    ignore: |
+      /cloud-init/
+      #!/bin/sh
+
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever
+
+  brackets:
+    max-spaces-inside: 0
+
+  braces:
+    max-spaces-inside: 0

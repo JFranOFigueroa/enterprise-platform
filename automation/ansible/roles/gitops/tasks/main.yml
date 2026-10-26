@@ -99,45 +99,47 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
-# Bootstrap GitOps: Deploy platform resources, apply Applications
+# Bootstrap GitOps: install the GitOps engine, then hand off to ArgoCD.
+#
+# Ownership boundary (Principle 1: Git is the only source of truth, Principle 8:
+# GitOps as the operating model). This role used to `kubectl apply` resources
+# that ArgoCD already managed, so two controllers owned the same objects. With
+# `prune: true` on app-of-platform, ArgoCD could prune a resource Ansible had
+# just applied, and it would not come back until a human re-ran this playbook.
+# That race is what left Applications at sync.status=Unknown.
+#
+#   This role APPLIES (bootstrap, irreducible - ArgoCD cannot exist before
+#   itself, and these are needed before any Application can be generated):
+#     - ArgoCD (helm), the gitops namespace, the AppProject
+#     - app-of-apps, app-of-platform
+#     - cluster registration Secret (ApplicationSets filter on its labels)
+#
+#   ArgoCD OWNS (this role only WAITS for them to appear):
+#     - everything under platform/components/ : local-path-provisioner,
+#       clusterissuers, priority-classes, quotas, cert-manager, monitoring,
+#       logging, metrics-server, sealed-secrets
+#     - every workload instantiated by an Application
+#
+#   DOCUMENTED EXCEPTION: the ArgoCD Application objects for the business apps
+#   (iumbit, atom, tenant-provisioning) are still applied by this role, because
+#   they carry secrets in spec.source.helm.parameters injected from the gitignored
+#   app_vars/<app>.yml. Moving them into bootstrap/gitops/applications/ would
+#   require committing those secrets. Consequences of the exception:
+#     - those Application CRs are not self-healed by ArgoCD
+#     - anyone with read access to the gitops namespace can read the secrets
+#   Closing it requires moving first-party app secrets to SealedSecrets, the
+#   mechanism tenants already use. Tracked as follow-up work.
+#
+# The waits below are therefore polls, not applies: they preserve the ordering
+# guarantees the removed applies provided (StorageClass and PriorityClass must
+# exist before the components that request them are admitted).
 # =============================================================================
 
-- name: Apply local-path-provisioner
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/storage/local-path-provisioner.yaml"
-  register: lpp_result
-  changed_when: "'created' in lpp_result.stdout or 'configured' in lpp_result.stdout"
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-- name: Wait for local-path-provisioner pod to be Ready
-  ansible.builtin.command:
-    cmd: >
-      {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
-      wait --for=condition=Ready pod -l app=local-path-provisioner
-      -n local-path-storage --timeout=180s
-  register: lpp_wait
-  until: lpp_wait.rc == 0
-  retries: 12
-  delay: 10
-  changed_when: false
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
-
-# =============================================================================
-# Bootstrap: Apply PriorityClasses EARLY so platform components that reference
-# them (monitoring, cert-manager) never hit a missing-class scheduling error.
-# ArgoCD also manages them (platform-policies) for self-heal; both are
-# idempotent against the same manifests.
-# =============================================================================
-
-- name: Apply PriorityClasses (bootstrap)
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/policies/priority-classes/priority-classes.yaml"
-  register: pclass_result
-  changed_when: "'created' in pclass_result.stdout or 'configured' in pclass_result.stdout"
-  environment:
-    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+# local-path-provisioner and PriorityClasses are NOT applied here: they are
+# managed by ArgoCD (platform-core and platform-policies ApplicationSets).
+# Waiting for them happens further down, right after app-of-platform converges.
+# Note: nothing between here and app-of-platform references platform-high, so
+# deferring the PriorityClass check does not delay any component.
 
 # =============================================================================
 # Wait for ArgoCD to be fully ready
@@ -366,6 +368,55 @@
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
 # =============================================================================
+# Wait for ArgoCD-owned bootstrap prerequisites
+#
+# These three objects used to be applied by this role as well as by ArgoCD
+# (platform-core and platform-policies). They are now polled only. app-of-platform
+# being Healthy means the ApplicationSet is healthy, NOT that the child
+# Applications it generated have finished syncing, so bounded waits are required.
+#
+# StorageClass first: kube-prometheus-stack and loki both request
+# storageClassName=local-path, so their PVCs stay Pending until it exists. The
+# retry/backoff already configured on app-of-platform absorbs that window.
+# =============================================================================
+
+- name: Wait for StorageClass local-path (ArgoCD-owned)
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get storageclass local-path -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: lpp_sc
+  until: lpp_sc.stdout == "local-path"
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for local-path-provisioner pod Ready (ArgoCD-owned)
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }}
+    wait --for=condition=Ready pod -l app=local-path-provisioner
+    -n local-path-storage --timeout=180s
+  register: lpp_wait
+  until: lpp_wait.rc == 0
+  retries: 12
+  delay: 10
+  changed_when: false
+  failed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+- name: Wait for PriorityClass platform-high (ArgoCD-owned)
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get priorityclass platform-high -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: pclass_wait
+  until: pclass_wait.stdout == "platform-high"
+  retries: 30
+  delay: 10
+  changed_when: false
+  environment:
+    KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+
+# =============================================================================
 # Wait for Platform Components (cert-manager first)
 # Two strategies:
 #   1. Primary: Wait via ArgoCD Application status (declarative, STRICT)
@@ -549,11 +600,18 @@
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 
-- name: Apply ClusterIssuers
-  ansible.builtin.command:
-    cmd: "{{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} apply -f {{ repo_dest }}/platform/certificates/issuers/clusterissuers.yaml"
-  register: issuers_result
-  changed_when: "'created' in issuers_result.stdout or 'configured' in issuers_result.stdout"
+# ClusterIssuers are NOT applied here: platform-core owns
+# platform/certificates/issuers. We only wait for the CRD to be established and
+# for ArgoCD to have created the issuers.
+
+- name: Wait for ClusterIssuers (ArgoCD-owned)
+  ansible.builtin.shell: |
+    {{ rke2_bin }}/kubectl --kubeconfig {{ rke2_kubeconfig }} get clusterissuer letsencrypt-production -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  register: issuers_wait
+  until: issuers_wait.stdout == "letsencrypt-production"
+  retries: 30
+  delay: 10
+  changed_when: false
   environment:
     KUBECONFIG: /etc/rancher/rke2/rke2.yaml
 

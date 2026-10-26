@@ -12,7 +12,7 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt-production
   hosts:
-    - host: stradtix.sytes.net 
+    - host: stradtix.sytes.net
       paths:
         - path: /
           pathType: Prefix
